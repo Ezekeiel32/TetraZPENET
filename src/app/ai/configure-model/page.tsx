@@ -19,7 +19,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal, Wrench, FileJson, BrainCircuit } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-const defaultModelCode = \`
+const defaultModelCode = `
 import torch
 import torch.nn as nn
 
@@ -77,7 +77,7 @@ class ZPEDeepNet(nn.Module):
             batch_mean_padded = torch.cat((batch_mean, torch.zeros(self.sequence_length - batch_mean.nelement() % self.sequence_length, device=self.device)))
             reshaped = batch_mean_padded.view(-1, self.sequence_length)
         elif batch_mean_truncated.nelement() == 0:
-            return
+            return # Cannot proceed if truncated part is empty
         else:
             reshaped = batch_mean_truncated.view(-1, self.sequence_length)
 
@@ -103,7 +103,13 @@ class ZPEDeepNet(nn.Module):
             flow_expanded_flat = flow.repeat(repeats)[:num_elements_to_cover]
             
             flow_expanded = flow_expanded_flat.view(1, 1, x.size(2), x.size(3))
-            flow_expanded = flow_expanded.expand_as(x) # expand to match x's shape
+            # Ensure flow_expanded matches number of channels of x
+            if x.size(1) > 0: # if there are channels
+                flow_expanded = flow_expanded.expand(x.size(0), x.size(1), x.size(2), x.size(3)) 
+            else: # if no channels, maybe it's a grayscale image that lost channel dim
+                 flow_expanded = flow_expanded.expand(x.size(0), 1, x.size(2), x.size(3))
+
+
         else:
             # Correctly handle non-spatial (FC layer) expansion
             num_elements_to_cover = x.size(-1)
@@ -135,13 +141,13 @@ class ZPEDeepNet(nn.Module):
         x = self.conv4(x) + residual
         
         # Apply ZPE before FC layers
-        x = self.apply_zpe(x, 4)
+        x = self.apply_zpe(x, 4) # This ZPE is applied to the output of conv4
         x = self.fc(x)
         
         # Apply ZPE to output (non-spatial)
         x = self.apply_zpe(x, 5, spatial=False)
         return x
-\`;
+`;
 
 // Use the input schema for form validation
 const formSchema = ConfigureModelForDatasetInputSchema;
