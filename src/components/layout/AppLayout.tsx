@@ -8,7 +8,7 @@ import {
   PanelLeft,
   Home,
   Cpu, // For Architecture & GPU Monitor
-  Zap, // For ZPE Flow
+  Zap, // For ZPE Flow (now HNN Advisor)
   Atom, // For Quantum Noise / QuantumLeap Brand
   BarChart3, // For Performance
   Settings, // For Configurations / Job History
@@ -23,6 +23,7 @@ import {
   Moon,
   Sun,
   X,
+  BrainCircuit // For HNN Advisor
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -32,12 +33,12 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/architecture", label: "Architecture", icon: Cpu },
   { href: "/train", label: "Train Model", icon: PlayCircle },
-  { href: "/gpu-monitor", label: "GPU Monitor", icon: Cpu }, // Added GPU Monitor
+  { href: "/gpu-monitor", label: "GPU Monitor", icon: Cpu },
   { href: "/configurations", label: "Job History", icon: Settings },
   { href: "/performance", label: "Performance", icon: BarChart3 },
-  { type: "divider", label: "ZPE Analysis (Placeholder)" },
-  { href: "/zpe-flow", label: "ZPE Flow", icon: Zap },
-  { href: "/quantum-noise", label: "Quantum Noise", icon: Atom },
+  { type: "divider", label: "Advanced Tools" },
+  { href: "/zpe-flow", label: "HNN Advisor", icon: BrainCircuit }, // Updated label and icon
+  { href: "/quantum-noise", label: "Quantum Noise (TBD)", icon: Atom }, // Kept as TBD
   { type: "divider", label: "AI Flows" },
   { href: "/ai/implement-zpe", label: "Simulate ZPE", icon: Lightbulb },
   { href: "/ai/approximate-zpe", label: "Approximate Flow", icon: Replace },

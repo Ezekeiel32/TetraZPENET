@@ -1,15 +1,29 @@
+
+export interface GpuInfo {
+  id?: string;
+  name?: string;
+  utilization_gpu_percent?: number;
+  utilization_memory_io_percent?: number; // Added this
+  memory_used_mb?: number;
+  memory_total_mb?: number;
+  memory_free_mb?: number; // Added this
+  memory_used_percent?: number; // Added this
+  temperature_c?: number;
+  power_draw_w?: number;
+  error?: string; 
+  info?: string; 
+}
+
 export interface TrainingParameters {
   totalEpochs: number;
   batchSize: number;
-  learningRate: number; // Changed float to number for TypeScript
-  weightDecay: number; // Changed float to number for TypeScript
+  learningRate: number; 
+  weightDecay: number; 
   momentumParams: number[];
   strengthParams: number[];
   noiseParams: number[];
-  // couplingParams: number[]; // Removed to match FastAPI
-  // cycleLength: number; // Removed to match FastAPI
   quantumCircuitSize: number;
-  labelSmoothing: number; // Changed float to number for TypeScript
+  labelSmoothing: number; 
   quantumMode: boolean;
   modelName: string;
   baseConfigId?: string;
@@ -17,16 +31,17 @@ export interface TrainingParameters {
 
 export interface TrainingJob {
   job_id: string;
-  status: "pending" | "running" | "completed" | "failed" | "stopped";
+  status: "pending" | "running" | "completed" | "failed" | "stopped" | "unknown_interrupted"; // Added unknown
   current_epoch: number;
   total_epochs: number;
   accuracy: number;
   loss: number;
   zpe_effects: number[];
   log_messages: string[];
-  parameters: TrainingParameters; // Store the parameters the job was started with
+  parameters: TrainingParameters; 
   start_time?: string | null;
   end_time?: string | null;
+  gpu_info?: GpuInfo; 
 }
 
 // Summary for the jobs list
