@@ -26,6 +26,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
+      <head>
+        {/* Next.js will populate this head, but we declare it explicitly */}
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
         <AppLayout>{children}</AppLayout>
         <Toaster />
