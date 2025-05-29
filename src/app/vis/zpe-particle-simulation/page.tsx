@@ -12,7 +12,7 @@ const ZPEParticleSketch = dynamic(
   { 
     ssr: false, 
     loading: () => (
-      <div className="h-[85vh] w-full flex items-center justify-center bg-muted rounded-md border shadow-lg">
+      <div className="flex-1 w-full flex items-center justify-center bg-muted rounded-md border shadow-lg min-h-[400px]"> {/* Ensure loading state has some height */}
         <p>Loading ZPE Particle Simulation...</p>
       </div>
     ) 
@@ -51,11 +51,13 @@ export default function ZPEParticleSimulationPage() {
         </CardContent>
       </Card>
 
-      <div className="w-full flex-grow h-[85vh]"> {/* Adjusted height and removed flex centering for full space usage */}
+      {/* Changed className here to make the sketch container fill remaining vertical space */}
+      <div className="w-full flex-1 min-h-0"> 
         {mounted ? (
           <ZPEParticleSketch />
         ) : (
-          <div className="h-full w-full flex items-center justify-center bg-muted rounded-md border shadow-lg">
+          // This loading placeholder will be shown if sketch is not yet mounted, matching flex-1 behavior
+          <div className="w-full h-full flex items-center justify-center bg-muted rounded-md border shadow-lg">
             <p>Initializing 3D Sketch...</p>
           </div>
         )}
