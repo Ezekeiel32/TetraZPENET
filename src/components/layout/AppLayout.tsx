@@ -7,23 +7,24 @@ import { usePathname } from "next/navigation";
 import {
   PanelLeft,
   Home,
-  Cpu, // For Architecture & GPU Monitor
-  Zap, // For ZPE Flow (now HNN Advisor)
-  Atom, // For Quantum Noise / QuantumLeap Brand
-  BarChart3, // For Performance
-  Settings, // For Configurations / Job History
-  PlayCircle, // For Train Model
-  Lightbulb, // For Implement ZPE
-  Replace, // For Approximate ZPE
-  Cog, // For Adapt ZPE
-  Scaling, // For Show Scaled Output
-  Box, // For Quantize Model
-  Share2, // For Extract Components
-  Wrench, // For Configure Model
+  Cpu, 
+  Zap, 
+  Atom, 
+  BarChart3, 
+  Settings, 
+  PlayCircle, 
+  Lightbulb, 
+  Replace, 
+  Cog, 
+  Scaling, 
+  Box, 
+  Share2, 
+  Wrench, 
   Moon,
   Sun,
   X,
-  BrainCircuit // For HNN Advisor
+  BrainCircuit,
+  Globe // Icon for Bloch Sphere / Visualizations
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -38,6 +39,7 @@ const navItems = [
   { href: "/performance", label: "Performance", icon: BarChart3 },
   { type: "divider", label: "Advanced Tools" },
   { href: "/zpe-flow", label: "HNN Advisor", icon: BrainCircuit }, 
+  { href: "/vis/bloch-sphere", label: "Bloch Sphere", icon: Globe },
   { href: "/quantum-noise", label: "Quantum Noise (TBD)", icon: Atom }, 
   { type: "divider", label: "AI Flows" },
   { href: "/ai/implement-zpe", label: "Simulate ZPE", icon: Lightbulb },
@@ -55,7 +57,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [isDarkMode, setIsDarkMode] = useState(true);
 
   useEffect(() => {
-    // Ensure theme matches state on initial load
     if (isDarkMode) {
       document.documentElement.classList.add("dark");
     } else {
@@ -68,7 +69,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     document.documentElement.classList.toggle("dark");
   };
   
-  const NavLinkContent = ({ item }: { item: typeof navItems[0] }) => (
+  const NavLinkContent = ({ item }: { item: typeof navItems[0] & {icon: React.ElementType} }) => (
     <>
       <item.icon className="h-5 w-5 mr-3 flex-shrink-0" />
       {item.label}
@@ -95,13 +96,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               href={item.href || "#"}
               className={cn(
                 "flex items-center px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                (pathname === item.href || (item.href && pathname.startsWith(item.href) && item.href !== "/")) 
+                (pathname === item.href || (item.href && pathname.startsWith(item.href) && item.href !== "/dashboard" && item.href !== "/")) // Adjusted condition
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               )}
               onClick={() => setIsMobileNavOpen(false)}
             >
-              <NavLinkContent item={item as typeof navItems[0]} />
+              <NavLinkContent item={item as typeof navItems[0] & {icon: React.ElementType}} />
             </Link>
           )
         )}
