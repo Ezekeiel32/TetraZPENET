@@ -37,8 +37,8 @@ const navItems = [
   { href: "/configurations", label: "Job History", icon: Settings },
   { href: "/performance", label: "Performance", icon: BarChart3 },
   { type: "divider", label: "Advanced Tools" },
-  { href: "/zpe-flow", label: "HNN Advisor", icon: BrainCircuit }, // Updated label and icon
-  { href: "/quantum-noise", label: "Quantum Noise (TBD)", icon: Atom }, // Kept as TBD
+  { href: "/zpe-flow", label: "HNN Advisor", icon: BrainCircuit }, 
+  { href: "/quantum-noise", label: "Quantum Noise (TBD)", icon: Atom }, 
   { type: "divider", label: "AI Flows" },
   { href: "/ai/implement-zpe", label: "Simulate ZPE", icon: Lightbulb },
   { href: "/ai/approximate-zpe", label: "Approximate Flow", icon: Replace },
@@ -68,7 +68,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     document.documentElement.classList.toggle("dark");
   };
   
-  const NavLinkContent = ({ item }) => (
+  const NavLinkContent = ({ item }: { item: typeof navItems[0] }) => (
     <>
       <item.icon className="h-5 w-5 mr-3 flex-shrink-0" />
       {item.label}
@@ -80,7 +80,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="flex items-center justify-between p-4 border-b border-border">
         <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold text-primary">
           <Atom className="h-6 w-6" />
-          <span>QuantumLeap</span>
+          <span>TetraZPE.com</span>
         </Link>
       </div>
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
@@ -101,7 +101,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               )}
               onClick={() => setIsMobileNavOpen(false)}
             >
-              <NavLinkContent item={item} />
+              <NavLinkContent item={item as typeof navItems[0]} />
             </Link>
           )
         )}
@@ -136,7 +136,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </Sheet>
           <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold text-primary md:hidden">
             <Atom className="h-6 w-6" />
-            <span className="sr-only">QuantumLeap</span>
+            <span className="sr-only">TetraZPE.com</span>
           </Link>
           <div className="ml-auto">
              <Button variant="ghost" size="icon" onClick={toggleDarkMode} className="md:hidden">
