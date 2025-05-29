@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Lightbulb, Replace, Cog, Scaling, Box, Share2, ArrowRight } from 'lucide-react';
+import { Lightbulb, Replace, Cog, Scaling, Box, Share2, ArrowRight, Wrench } from 'lucide-react';
 
 const aiFlows = [
   { href: "/ai/implement-zpe", title: "Simulate ZPE", description: "Simulate Zero-Point Energy effects on model accuracy.", icon: Lightbulb },
@@ -10,6 +10,7 @@ const aiFlows = [
   { href: "/ai/show-scaled-output", title: "Show Scaled Output", description: "Simulate pseudo-quantum circuit and show scaled output.", icon: Scaling },
   { href: "/ai/quantize-model", title: "Quantize Colab Model", description: "Generate code to quantize a PyTorch model from Colab.", icon: Box },
   { href: "/ai/extract-components", title: "Extract High-Gain Components", description: "Identify high-gain components for quantum applications.", icon: Share2 },
+  { href: "/ai/configure-model", title: "Configure Model for Dataset", description: "AI suggestions for model parameters based on dataset.", icon: Wrench },
 ];
 
 export default function AiFlowsPage() {

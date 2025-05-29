@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -8,9 +9,9 @@ import {
   Home,
   Cpu, // For Architecture
   Zap, // For ZPE Flow
-  Atom, // For Quantum Noise
+  Atom, // For Quantum Noise / QuantumLeap Brand
   BarChart3, // For Performance
-  Settings, // For Configurations
+  Settings, // For Configurations / Job History
   PlayCircle, // For Train Model
   Lightbulb, // For Implement ZPE
   Replace, // For Approximate ZPE
@@ -18,6 +19,7 @@ import {
   Scaling, // For Show Scaled Output
   Box, // For Quantize Model
   Share2, // For Extract Components
+  Wrench, // For Configure Model
   Moon,
   Sun,
   X,
@@ -32,7 +34,7 @@ const navItems = [
   { href: "/train", label: "Train Model", icon: PlayCircle },
   { href: "/configurations", label: "Job History", icon: Settings },
   { href: "/performance", label: "Performance", icon: BarChart3 },
-  { type: "divider", label: "ZPE Analysis" },
+  { type: "divider", label: "ZPE Analysis (Placeholder)" },
   { href: "/zpe-flow", label: "ZPE Flow", icon: Zap },
   { href: "/quantum-noise", label: "Quantum Noise", icon: Atom },
   { type: "divider", label: "AI Flows" },
@@ -42,6 +44,7 @@ const navItems = [
   { href: "/ai/show-scaled-output", label: "Scaled Output", icon: Scaling },
   { href: "/ai/quantize-model", label: "Quantize Model", icon: Box },
   { href: "/ai/extract-components", label: "Extract Components", icon: Share2 },
+  { href: "/ai/configure-model", label: "Configure Model", icon: Wrench },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -90,7 +93,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               href={item.href || "#"}
               className={cn(
                 "flex items-center px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                pathname === item.href
+                (pathname === item.href || (item.href && pathname.startsWith(item.href) && item.href !== "/")) 
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               )}
