@@ -11,6 +11,8 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
+// Schema defined here for flow input/output types and prompt, but not exported as an object.
+// The page component will have its own copy for client-side validation.
 const ConfigureModelForDatasetInputSchema = z.object({
   datasetDescription: z
     .string()
@@ -22,8 +24,8 @@ const ConfigureModelForDatasetInputSchema = z.object({
     .string()
     .min(100)
     .describe('The Python code for the PyTorch model (e.g., a nn.Module class definition).'),
-  currentBatchSize: z.number().optional().describe('The current batch size being used, if any.'),
-  currentSequenceLength: z.number().optional().describe('The current sequence length used in the model, if applicable (e.g., for ZPE flows or RNNs).'),
+  currentBatchSize: z.coerce.number().int().positive().optional().describe('The current batch size being used, if any.'),
+  currentSequenceLength: z.coerce.number().int().positive().optional().describe('The current sequence length used in the model, if applicable (e.g., for ZPE flows or RNNs).'),
 });
 export type ConfigureModelForDatasetInput = z.infer<typeof ConfigureModelForDatasetInputSchema>;
 
@@ -112,3 +114,4 @@ const configureModelForDatasetFlow = ai.defineFlow(
   }
 );
 
+    

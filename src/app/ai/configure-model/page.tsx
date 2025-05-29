@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { 
   configureModelForDataset, 
-  ConfigureModelForDatasetInput, 
-  ConfigureModelForDatasetOutput,
-  ConfigureModelForDatasetInputSchema
+  ConfigureModelForDatasetInput, // Type import
+  ConfigureModelForDatasetOutput
 } from "@/ai/flows/configure-model-for-dataset";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod"; // Zod import for local schema definition
 import { toast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal, Wrench, FileJson, BrainCircuit } from "lucide-react";
@@ -104,9 +104,9 @@ class ZPEDeepNet(nn.Module):
             
             flow_expanded = flow_expanded_flat.view(1, 1, x.size(2), x.size(3))
             # Ensure flow_expanded matches number of channels of x
-            if x.size(1) > 0: # if there are channels
+            if x.size(1) > 0: // if there are channels
                 flow_expanded = flow_expanded.expand(x.size(0), x.size(1), x.size(2), x.size(3)) 
-            else: # if no channels, maybe it's a grayscale image that lost channel dim
+            else: // if no channels, maybe it's a grayscale image that lost channel dim
                  flow_expanded = flow_expanded.expand(x.size(0), 1, x.size(2), x.size(3))
 
 
@@ -119,7 +119,7 @@ class ZPEDeepNet(nn.Module):
             flow_expanded_flat = flow.repeat(repeats)[:num_elements_to_cover]
             
             flow_expanded = flow_expanded_flat.view(1, -1)
-            flow_expanded = flow_expanded.expand_as(x) # expand to match x's shape
+            flow_expanded = flow_expanded.expand_as(x) // expand to match x's shape
         return x * flow_expanded
 
     def forward(self, x):
@@ -141,7 +141,7 @@ class ZPEDeepNet(nn.Module):
         x = self.conv4(x) + residual
         
         # Apply ZPE before FC layers
-        x = self.apply_zpe(x, 4) # This ZPE is applied to the output of conv4
+        x = self.apply_zpe(x, 4) // This ZPE is applied to the output of conv4
         x = self.fc(x)
         
         # Apply ZPE to output (non-spatial)
@@ -149,7 +149,23 @@ class ZPEDeepNet(nn.Module):
         return x
 `;
 
-// Use the input schema for form validation
+// Define the Zod schema directly in the page component for client-side validation
+const ConfigureModelForDatasetInputSchema = z.object({
+  datasetDescription: z
+    .string()
+    .min(20, "Dataset description must be at least 20 characters.")
+    .describe(
+      'A detailed description of the dataset. Include image dimensions (e.g., 28x28, 128x128), number of color channels (e.g., 1 for grayscale, 3 for RGB), number of classes, and any other relevant characteristics like sequence length if applicable. Example: "MNIST handwritten digits, 28x28 grayscale images, 10 classes."'
+    ),
+  modelCode: z
+    .string()
+    .min(100, "Model code must be at least 100 characters.")
+    .describe('The Python code for the PyTorch model (e.g., a nn.Module class definition).'),
+  currentBatchSize: z.coerce.number().int().positive().optional().describe('The current batch size being used, if any.'),
+  currentSequenceLength: z.coerce.number().int().positive().optional().describe('The current sequence length used in the model, if applicable (e.g., for ZPE flows or RNNs).'),
+});
+
+// Use the locally defined schema for form validation
 const formSchema = ConfigureModelForDatasetInputSchema;
 
 export default function ConfigureModelPage() {
@@ -158,7 +174,7 @@ export default function ConfigureModelPage() {
   const [error, setError] = useState<string | null>(null);
 
   const { control, handleSubmit, formState: { errors } } = useForm<ConfigureModelForDatasetInput>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema), // zodResolver now uses the locally defined schema
     defaultValues: {
       datasetDescription: "CIFAR-10 dataset, 32x32 RGB images, 10 classes.",
       modelCode: defaultModelCode,
@@ -212,12 +228,12 @@ export default function ConfigureModelPage() {
               </div>
                <div>
                 <Label htmlFor="currentBatchSize">Current Batch Size (Optional)</Label>
-                <Controller name="currentBatchSize" control={control} render={({ field }) => <Input {...field} type="number" placeholder="e.g., 32" />} />
+                <Controller name="currentBatchSize" control={control} render={({ field }) => <Input {...field} type="number" placeholder="e.g., 32" onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}/>} />
                 {errors.currentBatchSize && <p className="text-xs text-destructive">{errors.currentBatchSize.message}</p>}
               </div>
               <div>
                 <Label htmlFor="currentSequenceLength">Current Sequence Length (Optional, for ZPE etc.)</Label>
-                <Controller name="currentSequenceLength" control={control} render={({ field }) => <Input {...field} type="number" placeholder="e.g., 10 or 32" />} />
+                <Controller name="currentSequenceLength" control={control} render={({ field }) => <Input {...field} type="number" placeholder="e.g., 10 or 32" onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} />} />
                 {errors.currentSequenceLength && <p className="text-xs text-destructive">{errors.currentSequenceLength.message}</p>}
               </div>
               <Button type="submit" disabled={isLoading} className="w-full">
@@ -245,7 +261,7 @@ export default function ConfigureModelPage() {
                     <p><strong>Suggested Batch Size:</strong> {result.suggestedBatchSize}</p>
                     <p><strong>Estimated Input Channels:</strong> {result.estimatedInputChannels}</p>
                     <p><strong>Estimated Output Size (Classes):</strong> {result.estimatedOutputSize}</p>
-                    {result.estimatedSequenceLength && <p><strong>Estimated Sequence Length:</strong> {result.estimatedSequenceLength}</p>}
+                    {result.estimatedSequenceLength !== undefined && <p><strong>Estimated Sequence Length:</strong> {result.estimatedSequenceLength}</p>}
                   </CardContent>
                 </Card>
                 
@@ -279,3 +295,5 @@ export default function ConfigureModelPage() {
     </div>
   );
 }
+
+    
