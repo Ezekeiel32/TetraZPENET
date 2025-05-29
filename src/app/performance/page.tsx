@@ -6,8 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
-import { BarChart3, CalendarDays, TrendingUp, RefreshCw, Info, Eye } from "lucide-react";
-import { ResponsiveContainer, LineChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ComposedChart } from 'recharts';
+import { CalendarDays, TrendingUp, RefreshCw, Info, Eye } from "lucide-react";
+import { ResponsiveContainer, LineChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ComposedChart, BarChart } from 'recharts';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
@@ -33,7 +33,7 @@ export default function PerformancePage() {
       if (completedJobs.length > 0) {
         handleSelectJob(completedJobs[0].job_id); // Auto-select the latest completed job
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({ title: "Error fetching jobs", description: error.message, variant: "destructive" });
     } finally {
       setIsLoading(false);
@@ -83,7 +83,7 @@ export default function PerformancePage() {
       }
       setChartData(parsedChartData as any[]);
 
-    } catch (error) {
+    } catch (error: any) {
       toast({ title: "Error fetching job details", description: error.message, variant: "destructive" });
       setSelectedJob(null);
       setChartData([]);
