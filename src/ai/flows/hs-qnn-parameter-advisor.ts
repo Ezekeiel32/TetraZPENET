@@ -10,11 +10,12 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import type { TrainingParameters } from '@/types/training'; // Assuming TrainingParameters type is defined
+// TrainingParameters type is imported for type safety, actual Zod schema is defined below for internal use by the prompt.
+import type { TrainingParameters } from '@/types/training'; 
 
 // Define the Zod schema for TrainingParameters locally for the flow if not easily importable
 // This should mirror the structure in @/types/training.ts
-const TrainingParametersSchema = z.object({
+const TrainingParametersSchemaInternal = z.object({
   totalEpochs: z.number().int().min(1).max(200),
   batchSize: z.number().int().min(8).max(256),
   learningRate: z.number().min(0.00001).max(0.1),
@@ -22,6 +23,8 @@ const TrainingParametersSchema = z.object({
   momentumParams: z.array(z.number().min(0).max(1)).length(6),
   strengthParams: z.array(z.number().min(0).max(1)).length(6),
   noiseParams: z.array(z.number().min(0).max(1)).length(6),
+  // couplingParams: z.array(z.number().min(0).max(1)).length(6), // Removed as per previous alignment
+  // cycleLength: z.number().int().min(4).max(128), // Removed as per previous alignment
   quantumCircuitSize: z.number().int().min(4).max(64),
   labelSmoothing: z.number().min(0).max(0.5),
   quantumMode: z.boolean(),
@@ -29,16 +32,16 @@ const TrainingParametersSchema = z.object({
   baseConfigId: z.string().optional(),
 });
 
-export const HSQNNAdvisorInputSchema = z.object({
+const HSQNNAdvisorInputSchema = z.object({
   previousJobId: z.string().describe("The ID of the completed job being analyzed."),
   previousZpeEffects: z.array(z.number()).length(6).describe("The final ZPE effects (array of 6 numbers, e.g., [0.199, 0.011, ...]) from the previous job. These values typically range from 0.0 to 0.2, but can vary."),
-  previousTrainingParameters: TrainingParametersSchema.describe("The full set of training parameters used for the previous job."),
+  previousTrainingParameters: TrainingParametersSchemaInternal.describe("The full set of training parameters used for the previous job."),
   hnnObjective: z.string().min(10).describe("The user's objective for the next HNN training step. E.g., 'Maximize accuracy while keeping ZPE effects in the 0.05-0.15 range', 'Aggressively explore higher ZPE magnitudes for layer 3', 'Stabilize overall ZPE variance and slightly increase learning rate if accuracy was high'.")
 });
 export type HSQNNAdvisorInput = z.infer<typeof HSQNNAdvisorInputSchema>;
 
-export const HSQNNAdvisorOutputSchema = z.object({
-  suggestedNextTrainingParameters: TrainingParametersSchema.partial().describe("Suggested training parameters for the next HNN job. The AI may suggest changes to only a subset of parameters. The modelName should ideally be incremented or reflect the HNN step."),
+const HSQNNAdvisorOutputSchema = z.object({
+  suggestedNextTrainingParameters: TrainingParametersSchemaInternal.partial().describe("Suggested training parameters for the next HNN job. The AI may suggest changes to only a subset of parameters. The modelName should ideally be incremented or reflect the HNN step."),
   reasoning: z.string().describe("A step-by-step explanation of why these parameters are suggested, linking back to the previous ZPE state, parameters, and the HNN objective. Should mention which ZPE values (high/low/average) influenced decisions.")
 });
 export type HSQNNAdvisorOutput = z.infer<typeof HSQNNAdvisorOutputSchema>;
@@ -91,8 +94,8 @@ Constraints for ZPE parameters (momentum, strength, noise): values are between 0
 Learning rate typically between 0.00001 and 0.1.
 
 Output your response in the specified JSON format.
-Ensure \\\`suggestedNextTrainingParameters\\\` only contains fields you are actively suggesting changes for, or a full set if you deem it necessary.
-If suggesting changes to array parameters like \\\`strengthParams\\\`, provide the full array with the changes.
+Ensure \`suggestedNextTrainingParameters\` only contains fields you are actively suggesting changes for, or a full set if you deem it necessary.
+If suggesting changes to array parameters like \`strengthParams\`, provide the full array with the changes.
 `,
 });
 
@@ -103,13 +106,10 @@ const hsQnnParameterAdvisorFlow = ai.defineFlow(
     outputSchema: HSQNNAdvisorOutputSchema,
   },
   async (input) => {
-    // Add any pre-processing or tool calls here if needed in the future.
-    // For instance, fetching more detailed metrics about previousJobId if available.
     const { output } = await prompt(input);
     if (!output) {
       throw new Error('AI failed to generate HNN parameter advice.');
     }
-    // Ensure suggested model name is different if AI doesn't change it significantly.
     if (output.suggestedNextTrainingParameters && output.suggestedNextTrainingParameters.modelName === input.previousTrainingParameters.modelName) {
         output.suggestedNextTrainingParameters.modelName = `${input.previousTrainingParameters.modelName}_hnn_next`;
     } else if (output.suggestedNextTrainingParameters && !output.suggestedNextTrainingParameters.modelName) {
@@ -119,4 +119,3 @@ const hsQnnParameterAdvisorFlow = ai.defineFlow(
     return output;
   }
 );
-
