@@ -12,7 +12,7 @@ const ZPEParticleSketch = dynamic(
   { 
     ssr: false, 
     loading: () => (
-      <div className="h-[600px] w-full flex items-center justify-center bg-muted rounded-md border shadow-lg">
+      <div className="h-[85vh] w-full flex items-center justify-center bg-muted rounded-md border shadow-lg">
         <p>Loading ZPE Particle Simulation...</p>
       </div>
     ) 
@@ -27,8 +27,8 @@ export default function ZPEParticleSimulationPage() {
   }, []);
 
   return (
-    <div className="container mx-auto p-4 md:p-6">
-      <Card className="mb-6">
+    <div className="container mx-auto p-4 md:p-6 flex flex-col h-full">
+      <Card className="mb-6 shrink-0">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl">
             <Atom className="h-7 w-7 text-primary" /> {/* Example Icon */}
@@ -51,11 +51,11 @@ export default function ZPEParticleSimulationPage() {
         </CardContent>
       </Card>
 
-      <div className="w-full h-[600px] md:h-[700px] flex items-center justify-center">
+      <div className="w-full flex-grow h-[85vh]"> {/* Adjusted height and removed flex centering for full space usage */}
         {mounted ? (
           <ZPEParticleSketch />
         ) : (
-          <div className="h-[600px] w-full flex items-center justify-center bg-muted rounded-md border shadow-lg">
+          <div className="h-full w-full flex items-center justify-center bg-muted rounded-md border shadow-lg">
             <p>Initializing 3D Sketch...</p>
           </div>
         )}

@@ -4,20 +4,15 @@
 import React, { useEffect, useRef } from 'react';
 import type p5 from 'p5';
 
-interface ZPEParticleSketchProps {
-  width?: number;
-  height?: number;
-}
+// No longer needs width/height props as it will fill its parent
+interface ZPEParticleSketchProps {}
 
-const ZPEParticleSketch: React.FC<ZPEParticleSketchProps> = ({
-  width = 600, // Default width, can be made responsive
-  height = 600, // Default height
-}) => {
+const ZPEParticleSketch: React.FC<ZPEParticleSketchProps> = () => {
   const sketchRef = useRef<HTMLDivElement>(null);
   const p5InstanceRef = useRef<p5 | null>(null);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && sketchRef.current) {
       import('p5').then(p5Module => {
         const P5 = p5Module.default;
 
@@ -27,7 +22,7 @@ const ZPEParticleSketch: React.FC<ZPEParticleSketchProps> = ({
 
         const sketch = (p: p5) => {
           // --- Start of user's p5.js code ---
-          let particles: any[] = []; // Use any for now, or define Particle class type
+          let particles: any[] = []; 
           const numParticles = 100;
           let zpeStrength = 0.05; 
           let zpeNoise = 0.02;   
@@ -42,9 +37,9 @@ const ZPEParticleSketch: React.FC<ZPEParticleSketchProps> = ({
           };
           
           let tetrahedralMemory = {
-              nodes: [] as any[], // Define TetrahedralNode class type if needed
+              nodes: [] as any[], 
               connections: [] as any[],
-              capacity: 12, // Increased capacity for more nodes
+              capacity: 12, 
               scanHistory: [] as any[],
               processingPower: 0
           };
@@ -67,7 +62,7 @@ const ZPEParticleSketch: React.FC<ZPEParticleSketchProps> = ({
               baseColor: number[];
               scanned: boolean;
               inMemory: boolean;
-              memoryNode: any; // Define TetrahedralNode class type if needed
+              memoryNode: any; 
               dataValue: number;
               timeStored: number = 0;
 
@@ -138,7 +133,7 @@ const ZPEParticleSketch: React.FC<ZPEParticleSketchProps> = ({
                       p.sphere(this.size);
                   } 
                   else if (this.type === 'LEPTON') {
-                      p.fill(hue, saturation, brightness, 80); // alpha needs to be 0-100 for HSB if not specified otherwise
+                      p.fill(hue, saturation, brightness, 80); 
                       if (!this.inMemory) {
                           p.stroke(hue, saturation - 20, brightness);
                           p.strokeWeight(0.5);
@@ -275,8 +270,8 @@ const ZPEParticleSketch: React.FC<ZPEParticleSketchProps> = ({
           
           function connectParticles() {
               connections = [];
-              const gluons = particles.filter(p => p.type === 'GLUON');
-              const quarks = particles.filter(p => p.type === 'QUARK');
+              const gluons = particles.filter(pt => pt.type === 'GLUON');
+              const quarks = particles.filter(pt => pt.type === 'QUARK');
               for (let gluon of gluons) {
                   let closestQuarks = findClosestParticles(gluon, quarks, 2);
                   for (let quark of closestQuarks) {
@@ -284,7 +279,7 @@ const ZPEParticleSketch: React.FC<ZPEParticleSketchProps> = ({
                   }
               }
               if (p.frameCount % 30 === 0) {
-                  const leptons = particles.filter(p => p.type === 'LEPTON');
+                  const leptons = particles.filter(pt => pt.type === 'LEPTON');
                   if (leptons.length >= 2) {
                       for (let i = 0; i < p.min(5, leptons.length); i++) {
                           let lepton1 = leptons[p.floor(p.random(leptons.length))];
@@ -340,7 +335,7 @@ const ZPEParticleSketch: React.FC<ZPEParticleSketchProps> = ({
               if (scanner.detectedParticles.length > 0) {
                   p.stroke(120, 100, 100, 70); p.strokeWeight(0.8);
                   for (let particle of scanner.detectedParticles) {
-                      let relativePos = P5.Vector.sub(particle.pos, scanner.position);
+                      let relativePos = P5.Vector.sub(particle.pos, scanner.position!);
                       p.line(0, 0, 0, relativePos.x, relativePos.y, relativePos.z);
                   }
               }
@@ -369,7 +364,7 @@ const ZPEParticleSketch: React.FC<ZPEParticleSketchProps> = ({
               updateMemoryProcessingPower();
           }
           
-          function activateMemoryConnections(node: any) { // TetrahedralNode
+          function activateMemoryConnections(node: any) { 
               for (let conn of tetrahedralMemory.connections) {
                   if (conn.from === node.index || conn.to === node.index) {
                       let otherNodeIndex = conn.from === node.index ? conn.to : conn.from;
@@ -433,21 +428,25 @@ const ZPEParticleSketch: React.FC<ZPEParticleSketchProps> = ({
           }
 
           p.setup = () => {
-              p.createCanvas(p.min(p.windowWidth - 40, width), p.min(p.windowHeight - 200, height), p.WEBGL);
-              p.colorMode(p.HSB, 360, 100, 100, 100); // HSB with alpha 0-100
-              
-              for (let i = 0; i < numParticles; i++) {
-                  let type;
-                  if (i < numParticles * 0.5) type = 'QUARK';
-                  else if (i < numParticles * 0.8) type = 'LEPTON';
-                  else type = 'GLUON';
-                  particles.push(new Particle(type));
-              }
-              initTetrahedralMemory();
+            if (sketchRef.current) {
+              p.createCanvas(sketchRef.current.offsetWidth, sketchRef.current.offsetHeight, p.WEBGL);
+            } else {
+              p.createCanvas(600,600, p.WEBGL); // Fallback
+            }
+            p.colorMode(p.HSB, 360, 100, 100, 100); 
+            
+            for (let i = 0; i < numParticles; i++) {
+                let type;
+                if (i < numParticles * 0.5) type = 'QUARK';
+                else if (i < numParticles * 0.8) type = 'LEPTON';
+                else type = 'GLUON';
+                particles.push(new Particle(type));
+            }
+            initTetrahedralMemory();
           };
 
           p.draw = () => {
-              p.background(0,0,0,100); // Use HSB background, fully opaque
+              p.background(0,0,0,100); 
               p.ambientLight(150);
               p.pointLight(0, 0, 100, p.sin(p.frameCount * 0.02) * 200, p.cos(p.frameCount * 0.02) * 200, 100 );
               p.pointLight(240, 80, 80, p.cos(p.frameCount * 0.01) * 150, p.sin(p.frameCount * 0.01) * 150, -50 );
@@ -467,10 +466,12 @@ const ZPEParticleSketch: React.FC<ZPEParticleSketchProps> = ({
               renderScanner();
               zpeStrength = 0.05 + p.noise(p.frameCount * 0.02) * zpeNoise;
           };
-           p.windowResized = () => {
-            p.resizeCanvas(p.min(p.windowWidth - 40, width), p.min(p.windowHeight - 200, height));
-          }
 
+          p.windowResized = () => {
+            if (sketchRef.current) {
+              p.resizeCanvas(sketchRef.current.offsetWidth, sketchRef.current.offsetHeight);
+            }
+          }
           // --- End of user's p5.js code ---
         };
 
@@ -484,9 +485,10 @@ const ZPEParticleSketch: React.FC<ZPEParticleSketchProps> = ({
         p5InstanceRef.current = null;
       }
     };
-  }, [width, height]); // Re-create sketch if width/height changes
+  }, []); // Empty dependency array ensures this runs once on mount and cleans up on unmount
 
-  return <div ref={sketchRef} className="rounded-md border shadow-lg" style={{ width: `${width}px`, height: `${height}px` }} />;
+  // The div will fill its parent as defined by the page component
+  return <div ref={sketchRef} className="w-full h-full rounded-md border shadow-lg" />;
 };
 
 export default ZPEParticleSketch;
