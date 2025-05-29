@@ -25,8 +25,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <head>
+    <html lang="en" className="dark"><head>
         {/* Next.js will populate this head, but we declare it explicitly */}
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
