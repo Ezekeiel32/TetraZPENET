@@ -3,8 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod"; // Import Zod
-import Link from "next/link";
+import * as z from "zod";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { adviseHSQNNParameters, type HSQNNAdvisorInput, type HSQNNAdvisorOutput } from "@/ai/flows/hs-qnn-parameter-advisor";
@@ -28,28 +27,24 @@ const TrainingParametersSchema = z.object({
   batchSize: z.number().int().min(8).max(256),
   learningRate: z.number().min(0.00001).max(0.1),
   weightDecay: z.number().min(0).max(0.1),
-  momentumParams: z.array(z.number().min(0).max(1)).length(6),
-  strengthParams: z.array(z.number().min(0).max(1)).length(6),
-  noiseParams: z.array(z.number().min(0).max(1)).length(6),
+  momentumParams: z.array(z.number().min(0).max(1)).length(6, "Must have 6 momentum parameters"),
+  strengthParams: z.array(z.number().min(0).max(1)).length(6, "Must have 6 strength parameters"),
+  noiseParams: z.array(z.number().min(0).max(1)).length(6, "Must have 6 noise parameters"),
   quantumCircuitSize: z.number().int().min(4).max(64),
   labelSmoothing: z.number().min(0).max(0.5),
   quantumMode: z.boolean(),
-  modelName: z.string().min(3),
+  modelName: z.string().min(3, "Model name must be at least 3 characters"),
   baseConfigId: z.string().optional(),
 });
 
 // Define HSQNNAdvisorInputSchema locally for client-side validation
 const HSQNNAdvisorInputSchema = z.object({
   previousJobId: z.string().min(1, "Please select a previous job."),
-  // The actual previousZpeEffects and previousTrainingParameters will be fetched and passed directly to the AI flow,
-  // so they are not part of the form schema directly validated here.
-  // They are part of the HSQNNAdvisorInput type for the AI call.
+  // previousZpeEffects and previousTrainingParameters will be passed directly to the flow, not part of this form's direct schema
   hnnObjective: z.string().min(20, "Objective must be at least 20 characters long.").max(500, "Objective is too long."),
 });
 
-
-const advisorFormSchema = HSQNNAdvisorInputSchema; // Use the locally defined schema
-
+const advisorFormSchema = HSQNNAdvisorInputSchema;
 type AdvisorFormValues = z.infer<typeof advisorFormSchema>;
 
 export default function HSQNNParameterAdvisorPage() {
@@ -75,9 +70,10 @@ export default function HSQNNParameterAdvisorPage() {
 
   const fetchJobsList = useCallback(async () => {
     setIsLoadingJobs(true);
+    setError(null);
     try {
       const response = await fetch(`${API_BASE_URL}/jobs?limit=50`);
-      if (!response.ok) throw new Error("Failed to fetch jobs list");
+      if (!response.ok) throw new Error("Failed to fetch jobs list from backend.");
       const data = await response.json();
       const completedJobs = (data.jobs || []).filter((job: TrainingJobSummary) => job.status === "completed")
         .sort((a: TrainingJobSummary, b: TrainingJobSummary) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime());
@@ -86,16 +82,16 @@ export default function HSQNNParameterAdvisorPage() {
       const preselectJobId = searchParams.get("jobId");
       if (preselectJobId && completedJobs.find(j => j.job_id === preselectJobId)) {
         setValue("previousJobId", preselectJobId);
-      } else if (completedJobs.length > 0 && !watchedJobId) {
+      } else if (completedJobs.length > 0 && !watchedJobId) { // Only set default if watchedJobId isn't already set
          setValue("previousJobId", completedJobs[0].job_id); 
       }
-
     } catch (e: any) {
+      setError("Failed to fetch jobs: " + e.message);
       toast({ title: "Error fetching jobs", description: e.message, variant: "destructive" });
     } finally {
       setIsLoadingJobs(false);
     }
-  }, [setValue, searchParams, watchedJobId]);
+  }, [setValue, searchParams, watchedJobId]); // Added watchedJobId to deps
 
   useEffect(() => {
     fetchJobsList();
@@ -105,16 +101,16 @@ export default function HSQNNParameterAdvisorPage() {
     if (watchedJobId) {
       const fetchJobDetails = async () => {
         setIsLoading(true);
-        setAdviceResult(null); // Clear previous advice when job changes
+        setAdviceResult(null); 
+        setError(null);
         try {
           const response = await fetch(`${API_BASE_URL}/status/${watchedJobId}`);
-          if (!response.ok) throw new Error(`Failed to fetch details for job ${watchedJobId}`);
+          if (!response.ok) throw new Error(`Failed to fetch details for job ${watchedJobId}. Status: ${response.status}`);
           const data: TrainingJob = await response.json();
           setSelectedJobDetails(data);
-          setError(null);
         } catch (e: any) {
           setSelectedJobDetails(null);
-          setError(e.message);
+          setError("Failed to fetch job details: " + e.message);
           toast({ title: "Error fetching job details", description: e.message, variant: "destructive" });
         } finally {
           setIsLoading(false);
@@ -123,13 +119,13 @@ export default function HSQNNParameterAdvisorPage() {
       fetchJobDetails();
     } else {
       setSelectedJobDetails(null);
-      setAdviceResult(null); // Clear advice if no job selected
+      setAdviceResult(null); 
     }
   }, [watchedJobId]);
 
   const onSubmit = async (data: AdvisorFormValues) => {
     if (!selectedJobDetails) {
-      toast({ title: "Error", description: "Previous job details not loaded or job not completed.", variant: "destructive" });
+      toast({ title: "Error", description: "Previous job details not loaded. Please select a job.", variant: "destructive" });
       return;
     }
     if (selectedJobDetails.status !== 'completed') {
@@ -141,12 +137,38 @@ export default function HSQNNParameterAdvisorPage() {
     setError(null);
     setAdviceResult(null);
 
+    let validatedPreviousParams: TrainingParameters;
+    try {
+        // Ensure all parameters from the job are present and correctly typed before parsing
+        const paramsToValidate = {
+            ...selectedJobDetails.parameters, // Spread existing parameters
+            // Explicitly ensure all required fields for TrainingParametersSchema are present,
+            // even if they might be optional or missing in a loosely typed selectedJobDetails.parameters
+            totalEpochs: selectedJobDetails.parameters.totalEpochs || 0,
+            batchSize: selectedJobDetails.parameters.batchSize || 0,
+            learningRate: selectedJobDetails.parameters.learningRate || 0,
+            weightDecay: selectedJobDetails.parameters.weightDecay || 0,
+            momentumParams: selectedJobDetails.parameters.momentumParams || [],
+            strengthParams: selectedJobDetails.parameters.strengthParams || [],
+            noiseParams: selectedJobDetails.parameters.noiseParams || [],
+            quantumCircuitSize: selectedJobDetails.parameters.quantumCircuitSize || 0,
+            labelSmoothing: selectedJobDetails.parameters.labelSmoothing || 0,
+            quantumMode: selectedJobDetails.parameters.quantumMode || false,
+            modelName: selectedJobDetails.parameters.modelName || "DefaultModel",
+        };
+        validatedPreviousParams = TrainingParametersSchema.parse(paramsToValidate);
+    } catch (validationError: any) {
+        console.error("Validation error for previousTrainingParameters:", validationError);
+        setError("Previous job parameters are not in the expected format. Check console for details. Error: " + validationError.message);
+        toast({ title: "Parameter Mismatch", description: "Previous job parameters are not in the expected format. " + validationError.message, variant: "destructive" });
+        setIsLoading(false);
+        return;
+    }
+    
     const inputForAI: HSQNNAdvisorInput = {
       previousJobId: selectedJobDetails.job_id,
       previousZpeEffects: selectedJobDetails.zpe_effects,
-      // Ensure previousTrainingParameters aligns with the schema used in the flow
-      // The TrainingParameters type from @/types/training should be compatible
-      previousTrainingParameters: selectedJobDetails.parameters as TrainingParameters, 
+      previousTrainingParameters: validatedPreviousParams, 
       hnnObjective: data.hnnObjective,
     };
 
@@ -155,7 +177,7 @@ export default function HSQNNParameterAdvisorPage() {
       setAdviceResult(output);
       toast({ title: "Advice Generated", description: "AI has provided suggestions for the next HNN step." });
     } catch (e: any) {
-      setError(e.message || "An unexpected error occurred.");
+      setError("AI advice generation failed: " + e.message);
       toast({ title: "Advice Generation Failed", description: e.message, variant: "destructive" });
     } finally {
       setIsLoading(false);
@@ -164,40 +186,38 @@ export default function HSQNNParameterAdvisorPage() {
 
   const handleUseParameters = () => {
     if (adviceResult?.suggestedNextTrainingParameters && selectedJobDetails) {
-      // Start with all parameters from the *selectedJobDetails.parameters* as base
       const baseParams = { ...selectedJobDetails.parameters };
-      
-      // Override with AI suggestions. Critical: AI might return partial parameters.
       const suggestedParams = adviceResult.suggestedNextTrainingParameters;
       
+      // Create the new set of parameters, starting with the base, then overlaying suggestions
       const combinedParams: Partial<TrainingParameters> = { ...baseParams };
 
+      // Overlay only the fields AI actually suggested changes for
       for (const key in suggestedParams) {
         if (Object.prototype.hasOwnProperty.call(suggestedParams, key)) {
-          // Type assertion as suggestedParams keys are from Partial<TrainingParameters>
+          // Type assertion needed if suggestedParams is Partial<TrainingParameters>
           (combinedParams as any)[key] = (suggestedParams as any)[key];
         }
       }
       
-      // Ensure model name is handled: use AI's suggestion, or derive from previous
+      // Ensure modelName is handled: use AI's suggestion, or make a new one
       if (suggestedParams.modelName) {
         combinedParams.modelName = suggestedParams.modelName;
       } else if (baseParams.modelName) {
-        combinedParams.modelName = `${baseParams.modelName}_hnn_step`;
+        combinedParams.modelName = `${baseParams.modelName}_hnn`; // Simple naming convention
       } else {
         combinedParams.modelName = "HNN_Model_Next"; // Fallback
       }
-
-      // Set baseConfigId to the ID of the job we just analyzed
-      combinedParams.baseConfigId = selectedJobDetails.job_id;
-
+      combinedParams.baseConfigId = selectedJobDetails.job_id; // Link to previous job
 
       const queryParams = new URLSearchParams();
       for (const [key, value] of Object.entries(combinedParams)) {
-        if (Array.isArray(value)) {
-          queryParams.append(key, JSON.stringify(value));
-        } else if (value !== undefined && value !== null) {
-          queryParams.append(key, String(value));
+        if (value !== undefined && value !== null) { // Ensure value is not undefined or null
+          if (Array.isArray(value)) {
+            queryParams.append(key, JSON.stringify(value));
+          } else {
+            queryParams.append(key, String(value));
+          }
         }
       }
       router.push(`/train?${queryParams.toString()}`);
@@ -205,30 +225,53 @@ export default function HSQNNParameterAdvisorPage() {
   };
   
   const ParamList = ({ params, title }: { params: Partial<TrainingParameters> | TrainingParameters | undefined, title: string }) => {
-    if (!params || Object.keys(params).length === 0) return <p className="text-sm text-muted-foreground italic">{title}: No parameters to display or not applicable.</p>;
-    
-    const displayParams = { ...params };
-    // Remove baseConfigId from display if it was the same as the previous job ID, as it's implied.
-    if (title === "Suggested Changes" && selectedJobDetails && displayParams.baseConfigId === selectedJobDetails.job_id) {
-      delete displayParams.baseConfigId;
+    if (!params || Object.keys(params).length === 0) {
+      let message = `${title}: No parameters to display or not applicable.`;
+      if (title === "Suggested Changes" && selectedJobDetails && (!params || Object.keys(params).length === 0)) {
+        message = `${title}: No specific changes suggested beyond inheriting from the previous job (Model Name will be updated).`;
+      }
+      return <p className="text-sm text-muted-foreground italic">{message}</p>;
     }
 
+    const entries = Object.entries(params);
+     if (entries.length === 0 && title === "Suggested Changes") { // Redundant check but safe
+        return <p className="text-sm text-muted-foreground italic">{title}: No specific changes suggested (Model Name will be updated).</p>;
+    }
+     if (entries.length === 0) { // Redundant check but safe
+        return <p className="text-sm text-muted-foreground italic">{title}: No parameters available.</p>;
+    }
 
     return (
       <div className="space-y-1 text-sm">
          <h4 className="font-semibold text-muted-foreground">{title}:</h4>
-        {Object.entries(displayParams).map(([key, value]) => (
-          <li key={key} className="ml-4 list-disc list-inside">
-            <span className="font-medium">{key}:</span>{' '}
-            {Array.isArray(value) ? `[${value.map(v => typeof v === 'number' ? v.toFixed(4) : String(v)).join(', ')}]` : String(value)}
-          </li>
-        ))}
+         <ul className="list-disc list-inside pl-4 space-y-1 bg-background/50 p-2 rounded">
+            {entries.map(([key, value]) => {
+              if (title === "Suggested Changes" && key === "baseConfigId" && value === selectedJobDetails?.job_id) {
+                return null; // Don't show baseConfigId if it's just inheriting
+              }
+              // Don't show modelName in "Suggested Changes" if AI didn't suggest one AND it's same as previous
+              if (title === "Suggested Changes" && key === "modelName" && 
+                  value === selectedJobDetails?.parameters.modelName && 
+                  !adviceResult?.suggestedNextTrainingParameters?.modelName) {
+                return null;
+              }
+              if (value === undefined || value === null) return null; // Skip rendering undefined/null values
+
+              return (
+                <li key={key}>
+                  <span className="font-medium">{key}:</span>{' '}
+                  {Array.isArray(value) ? `[${value.map(v => typeof v === 'number' ? v.toFixed(4) : String(v)).join(', ')}]` : String(value)}
+                </li>
+              );
+            })}
+         </ul>
       </div>
     );
-  };
+  }; // Semicolon after ParamList definition
 
-
+  // Line 231
   return (
+    // Line 232
     <div className="container mx-auto p-4 md:p-6">
       <Card className="mb-6">
         <CardHeader>
@@ -304,7 +347,7 @@ export default function HSQNNParameterAdvisorPage() {
                 {errors.hnnObjective && <p className="text-xs text-destructive mt-1">{errors.hnnObjective.message}</p>}
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading || !selectedJobDetails || selectedJobDetails.status !== 'completed'}>
+              <Button type="submit" className="w-full" disabled={isLoading || !selectedJobDetails || (selectedJobDetails && selectedJobDetails.status !== 'completed')}>
                 {isLoading ? <RefreshCw className="mr-2 h-4 w-4 animate-spin"/> : <Wand2 className="mr-2 h-4 w-4" />}
                 Get HNN Advice
               </Button>
@@ -334,7 +377,10 @@ export default function HSQNNParameterAdvisorPage() {
                   <CardContent>
                     <ScrollArea className="h-48">
                       <ParamList params={adviceResult.suggestedNextTrainingParameters} title="Suggested Changes"/>
-                      <p className="text-xs text-muted-foreground mt-2">Note: Parameters not listed here should typically be inherited from the previous job. The AI might suggest a new model name.</p>
+                       <p className="text-xs text-muted-foreground mt-2">
+                        Note: AI suggested changes are shown. Other parameters will typically be inherited from the previous job.
+                        A new model name ({adviceResult.suggestedNextTrainingParameters?.modelName || `${selectedJobDetails?.parameters?.modelName}_hnn`}) will be used.
+                      </p>
                     </ScrollArea>
                   </CardContent>
                    <CardFooter>
@@ -348,7 +394,7 @@ export default function HSQNNParameterAdvisorPage() {
                   </CardFooter>
                 </Card>
                 <Card>
-                  <CardHeader><CardTitle className="text-lg">Reasoning from AI</CardTitle></CardHeader
+                  <CardHeader><CardTitle className="text-lg">Reasoning from AI</CardTitle></CardHeader>
                   <CardContent>
                     <ScrollArea className="h-48">
                       <p className="text-sm whitespace-pre-wrap">{adviceResult.reasoning}</p>
@@ -363,4 +409,3 @@ export default function HSQNNParameterAdvisorPage() {
     </div>
   );
 }
-
