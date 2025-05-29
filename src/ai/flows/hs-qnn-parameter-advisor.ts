@@ -91,8 +91,8 @@ Constraints for ZPE parameters (momentum, strength, noise): values are between 0
 Learning rate typically between 0.00001 and 0.1.
 
 Output your response in the specified JSON format.
-Ensure `suggestedNextTrainingParameters` only contains fields you are actively suggesting changes for, or a full set if you deem it necessary.
-If suggesting changes to array parameters like `strengthParams`, provide the full array with the changes.
+Ensure \\\`suggestedNextTrainingParameters\\\` only contains fields you are actively suggesting changes for, or a full set if you deem it necessary.
+If suggesting changes to array parameters like \\\`strengthParams\\\`, provide the full array with the changes.
 `,
 });
 
@@ -119,3 +119,4 @@ const hsQnnParameterAdvisorFlow = ai.defineFlow(
     return output;
   }
 );
+
