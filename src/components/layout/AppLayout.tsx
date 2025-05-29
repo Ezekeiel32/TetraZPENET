@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import {
   PanelLeft,
   Home,
-  Cpu, // For Architecture
+  Cpu, // For Architecture & GPU Monitor
   Zap, // For ZPE Flow
   Atom, // For Quantum Noise / QuantumLeap Brand
   BarChart3, // For Performance
@@ -32,6 +32,7 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/architecture", label: "Architecture", icon: Cpu },
   { href: "/train", label: "Train Model", icon: PlayCircle },
+  { href: "/gpu-monitor", label: "GPU Monitor", icon: Cpu }, // Added GPU Monitor
   { href: "/configurations", label: "Job History", icon: Settings },
   { href: "/performance", label: "Performance", icon: BarChart3 },
   { type: "divider", label: "ZPE Analysis (Placeholder)" },
