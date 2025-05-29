@@ -11,7 +11,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const ConfigureModelForDatasetInputSchema = z.object({
+const ConfigureModelForDatasetInputSchema = z.object({
   datasetDescription: z
     .string()
     .min(20)
@@ -27,7 +27,7 @@ export const ConfigureModelForDatasetInputSchema = z.object({
 });
 export type ConfigureModelForDatasetInput = z.infer<typeof ConfigureModelForDatasetInputSchema>;
 
-export const ConfigureModelForDatasetOutputSchema = z.object({
+const ConfigureModelForDatasetOutputSchema = z.object({
   suggestedBatchSize: z.number().describe('A suggested batch size appropriate for the dataset and typical model training, considering memory and generalization.'),
   suggestedModelModifications: z
     .string()
@@ -111,3 +111,4 @@ const configureModelForDatasetFlow = ai.defineFlow(
     return output;
   }
 );
+
