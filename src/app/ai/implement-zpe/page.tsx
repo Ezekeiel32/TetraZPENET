@@ -1,3 +1,4 @@
+
 "use client";
 import { useState } from "react";
 import { implementZPESimulation, ImplementZPESimulationInput, ImplementZPESimulationOutput } from "@/ai/flows/implement-zpe";
@@ -6,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { useForm, Controller, useFieldArray } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form"; // Removed useFieldArray as it's not used in the final solution
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "@/hooks/use-toast";
@@ -17,11 +18,15 @@ import { Terminal, Lightbulb } from "lucide-react";
 const formSchema = z.object({
   baseAccuracy: z.coerce.number().min(0).max(100),
   epochsRatio: z.coerce.number().min(0).max(1),
-  strengthParams: z.array(z.coerce.number().min(0).max(1)).min(1, "At least one strength param needed"),
-  momentumParams: z.array(z.coerce.number().min(0).max(1)).min(1, "At least one momentum param needed"),
-  noiseParams: z.array(z.coerce.number().min(0).max(1)).min(1, "At least one noise param needed"),
+  strengthParams: z.array(z.coerce.number().min(0).max(1)).length(6, "Must have 6 strength parameters"),
+  momentumParams: z.array(z.coerce.number().min(0).max(1)).length(6, "Must have 6 momentum parameters"),
+  noiseParams: z.array(z.coerce.number().min(0).max(1)).length(6, "Must have 6 noise parameters"),
   quantumMode: z.boolean(),
 });
+
+// Type is inferred from the schema, no need to explicitly import from flow if schema is local
+// type FormValues = z.infer<typeof formSchema>; 
+// We still need ImplementZPESimulationInput for the AI flow call.
 
 export default function ImplementZPEPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -40,9 +45,6 @@ export default function ImplementZPEPage() {
     },
   });
 
-  const { fields: strengthFields, append: appendStrength, remove: removeStrength } = useFieldArray({ control, name: "strengthParams" });
-  // Similar for momentum and noise if dynamic length is desired. For fixed 6, direct is fine.
-
   const onSubmit = async (data: ImplementZPESimulationInput) => {
     setIsLoading(true);
     setError(null);
@@ -59,15 +61,17 @@ export default function ImplementZPEPage() {
     }
   };
   
-  const renderArrayInput = (paramName: "strengthParams" | "momentumParams" | "noiseParams", label: string) => (
+  const renderArrayInput = (paramName: "strengthParams" | "momentumParams" | "noiseParams", label: string) => {
+    const numLayers = 6; // Fixed number of layers
+    return (
      <div className="space-y-2 col-span-1 md:col-span-2">
-        <Label className="text-base">{label} (6 Layers)</Label>
+        <Label className="text-base">{label} ({numLayers} Layers)</Label>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {control.getValues(paramName).map((_, index) => (
-            <div key={index} className="flex flex-col space-y-1">
+          {Array.from({ length: numLayers }).map((_, index) => (
+            <div key={`${paramName}-${index}`} className="flex flex-col space-y-1">
               <Label htmlFor={`${paramName}.${index}`} className="text-xs">L{index+1}</Label>
               <Controller
-                name={`${paramName}.${index}`}
+                name={`${paramName}.${index}` as const} // Use 'as const' for stricter typing if TS complains
                 control={control}
                 render={({ field, fieldState: itemError }) => (
                   <>
@@ -79,9 +83,13 @@ export default function ImplementZPEPage() {
             </div>
           ))}
         </div>
-        {errors[paramName] && <p className="text-xs text-destructive">{errors[paramName]?.message}</p>}
+        {/* Display array-level errors (e.g., "Must have 6 parameters") */}
+        {errors[paramName] && typeof (errors[paramName] as any)?.message === 'string' && (
+            <p className="text-xs text-destructive">{(errors[paramName] as any).message}</p>
+        )}
       </div>
-  );
+    );
+  };
 
 
   return (
@@ -181,3 +189,4 @@ export default function ImplementZPEPage() {
     </div>
   );
 }
+
