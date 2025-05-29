@@ -24,7 +24,8 @@ import {
   Sun,
   X,
   BrainCircuit,
-  Globe // Icon for Bloch Sphere / Visualizations
+  Globe,
+  ScatterChart // New icon for ZPE Particle Sim
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -40,6 +41,7 @@ const navItems = [
   { type: "divider", label: "Advanced Tools" },
   { href: "/zpe-flow", label: "HNN Advisor", icon: BrainCircuit }, 
   { href: "/vis/bloch-sphere", label: "Bloch Sphere", icon: Globe },
+  { href: "/vis/zpe-particle-simulation", label: "ZPE Particle Sim", icon: ScatterChart },
   { href: "/quantum-noise", label: "Quantum Noise (TBD)", icon: Atom }, 
   { type: "divider", label: "AI Flows" },
   { href: "/ai/implement-zpe", label: "Simulate ZPE", icon: Lightbulb },
@@ -57,6 +59,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [isDarkMode, setIsDarkMode] = useState(true);
 
   useEffect(() => {
+    // Apply dark mode on initial load if it's the default
+    // The class is now set on <html> in layout.tsx, so this useEffect might only be for the toggle
     if (isDarkMode) {
       document.documentElement.classList.add("dark");
     } else {
@@ -66,7 +70,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode);
-    document.documentElement.classList.toggle("dark");
+    // document.documentElement.classList.toggle("dark"); // Handled by the <html> tag class now
   };
   
   const NavLinkContent = ({ item }: { item: typeof navItems[0] & {icon: React.ElementType} }) => (
@@ -96,7 +100,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               href={item.href || "#"}
               className={cn(
                 "flex items-center px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                (pathname === item.href || (item.href && pathname.startsWith(item.href) && item.href !== "/dashboard" && item.href !== "/")) // Adjusted condition
+                (pathname === item.href || (item.href && pathname.startsWith(item.href) && item.href !== "/dashboard" && item.href !== "/")) 
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               )}
