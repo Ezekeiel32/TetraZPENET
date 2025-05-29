@@ -1,15 +1,15 @@
 export interface TrainingParameters {
   totalEpochs: number;
   batchSize: number;
-  learningRate: float;
-  weightDecay: float;
+  learningRate: number; // Changed float to number for TypeScript
+  weightDecay: number; // Changed float to number for TypeScript
   momentumParams: number[];
   strengthParams: number[];
   noiseParams: number[];
-  couplingParams: number[]; // Added based on ZPEDeepNet
-  cycleLength: number; // Added based on user request (sequence_length)
+  // couplingParams: number[]; // Removed to match FastAPI
+  // cycleLength: number; // Removed to match FastAPI
   quantumCircuitSize: number;
-  labelSmoothing: float;
+  labelSmoothing: number; // Changed float to number for TypeScript
   quantumMode: boolean;
   modelName: string;
   baseConfigId?: string;

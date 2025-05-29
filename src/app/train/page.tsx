@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
@@ -17,7 +18,7 @@ import { toast } from "@/hooks/use-toast";
 import { Play, StopCircle, List, Zap, Settings, RefreshCw, AlertTriangle, CheckCircle, ExternalLink } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge"; // Added import
+import { Badge } from "@/components/ui/badge";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
@@ -30,8 +31,6 @@ const trainingFormSchema = z.object({
   momentumParams: z.array(z.coerce.number().min(0).max(1)).length(6, "Must have 6 momentum values"),
   strengthParams: z.array(z.coerce.number().min(0).max(1)).length(6, "Must have 6 strength values"),
   noiseParams: z.array(z.coerce.number().min(0).max(1)).length(6, "Must have 6 noise values"),
-  couplingParams: z.array(z.coerce.number().min(0).max(1)).length(6, "Must have 6 coupling values"),
-  cycleLength: z.coerce.number().int().min(1).max(64),
   quantumCircuitSize: z.coerce.number().int().min(4).max(64),
   labelSmoothing: z.coerce.number().min(0).max(0.5),
   quantumMode: z.boolean(),
@@ -42,7 +41,6 @@ const defaultZPEParams = {
   momentum: [0.9, 0.85, 0.8, 0.75, 0.7, 0.65],
   strength: [0.35, 0.33, 0.31, 0.60, 0.27, 0.50],
   noise: [0.3, 0.28, 0.26, 0.35, 0.22, 0.25],
-  coupling: [0.85, 0.82, 0.79, 0.76, 0.73, 0.7], // From ZPEDeepNet
 };
 
 export default function TrainModelPage() {
@@ -64,16 +62,12 @@ export default function TrainModelPage() {
       momentumParams: defaultZPEParams.momentum,
       strengthParams: defaultZPEParams.strength,
       noiseParams: defaultZPEParams.noise,
-      couplingParams: defaultZPEParams.coupling,
-      cycleLength: 32, // User specified 2**5
       quantumCircuitSize: 32,
       labelSmoothing: 0.1,
       quantumMode: true,
+      baseConfigId: undefined,
     },
   });
-
-  const { fields: momentumFields, append: appendMomentum, remove: removeMomentum } = useFieldArray({ control, name: "momentumParams" });
-  // Similar useFieldArray for strengthParams, noiseParams, couplingParams if dynamic length is needed. For fixed length 6, direct Controller is fine.
 
   const fetchJobsList = useCallback(async () => {
     setIsLoadingJobs(true);
@@ -83,7 +77,7 @@ export default function TrainModelPage() {
       const data = await response.json();
       setJobsList(data.jobs || []);
     } catch (error) {
-      toast({ title: "Error fetching jobs", description: error.message, variant: "destructive" });
+      toast({ title: "Error fetching jobs", description: (error as Error).message, variant: "destructive" });
     } finally {
       setIsLoadingJobs(false);
     }
@@ -100,7 +94,6 @@ export default function TrainModelPage() {
       const jobData: TrainingJob = await response.json();
       setActiveJob(jobData);
       
-      // Update chart data
       if (jobData.status === "running" || jobData.status === "completed") {
         setChartData(prev => {
           const newPoint = { 
@@ -109,9 +102,12 @@ export default function TrainModelPage() {
             loss: jobData.loss,
             avg_zpe: jobData.zpe_effects.reduce((a,b)=>a+b,0) / (jobData.zpe_effects.length || 1)
           };
-          // Avoid duplicate epoch points if already present
-          if (prev.find(p => p.epoch === newPoint.epoch)) {
-            return prev.map(p => p.epoch === newPoint.epoch ? newPoint : p);
+          // Update existing point or add new one
+          const existingPointIndex = prev.findIndex(p => p.epoch === newPoint.epoch);
+          if (existingPointIndex > -1) {
+            const updatedPrev = [...prev];
+            updatedPrev[existingPointIndex] = newPoint;
+            return updatedPrev;
           }
           return [...prev, newPoint].sort((a,b) => a.epoch - b.epoch);
         });
@@ -120,11 +116,11 @@ export default function TrainModelPage() {
       if (jobData.status === "completed" || jobData.status === "failed" || jobData.status === "stopped") {
         if (pollingIntervalId) clearInterval(pollingIntervalId);
         setPollingIntervalId(null);
-        fetchJobsList(); // Refresh jobs list
+        fetchJobsList(); 
         toast({ title: `Job ${jobData.status}`, description: `Job ${jobId} finished with status: ${jobData.status}. Accuracy: ${jobData.accuracy.toFixed(2)}%` });
       }
     } catch (error) {
-      toast({ title: "Error polling job status", description: error.message, variant: "destructive" });
+      toast({ title: "Error polling job status", description: (error as Error).message, variant: "destructive" });
       if (pollingIntervalId) clearInterval(pollingIntervalId);
       setPollingIntervalId(null);
     }
@@ -139,7 +135,7 @@ export default function TrainModelPage() {
 
   const onSubmit = async (data: TrainingParameters) => {
     setIsSubmitting(true);
-    setChartData([]); // Reset chart for new job
+    setChartData([]); 
     try {
       const response = await fetch(`${API_BASE_URL}/train`, {
         method: "POST",
@@ -161,10 +157,10 @@ export default function TrainModelPage() {
       });
       const intervalId = setInterval(() => pollJobStatus(result.job_id), 2000);
       setPollingIntervalId(intervalId);
-      fetchJobsList(); // Refresh job list
+      fetchJobsList(); 
       toast({ title: "Training Started", description: `Job ID: ${result.job_id}` });
     } catch (error) {
-      toast({ title: "Error starting training", description: error.message, variant: "destructive" });
+      toast({ title: "Error starting training", description: (error as Error).message, variant: "destructive" });
       setActiveJob(null);
     } finally {
       setIsSubmitting(false);
@@ -176,42 +172,57 @@ export default function TrainModelPage() {
       const response = await fetch(`${API_BASE_URL}/stop/${jobId}`, { method: "POST" });
       if (!response.ok) throw new Error("Failed to stop job");
       toast({ title: "Stop Request Sent", description: `Requested stop for job ${jobId}` });
-      // Status will update via polling
     } catch (error) {
-      toast({ title: "Error stopping job", description: error.message, variant: "destructive" });
+      toast({ title: "Error stopping job", description: (error as Error).message, variant: "destructive" });
     }
   };
   
   const handleViewJobDetails = async (jobId: string) => {
-    if (pollingIntervalId) clearInterval(pollingIntervalId); // Stop current polling if any
-    setChartData([]); // Reset chart
+    if (pollingIntervalId) clearInterval(pollingIntervalId); 
+    setChartData([]); 
     const jobDetail = jobsList.find(j => j.job_id === jobId);
     if (jobDetail && jobDetail.status !== "running" && jobDetail.status !== "pending") {
-      // Fetch full job details if not active
       try {
         const response = await fetch(`${API_BASE_URL}/status/${jobId}`);
         if (!response.ok) throw new Error("Failed to fetch job details");
         const data: TrainingJob = await response.json();
         setActiveJob(data);
-        // If you stored epoch-by-epoch data on backend, fetch and populate chartData here
-        // For now, just show final state for completed/failed/stopped from full status
-        if (data.status === "completed" || data.status === "failed" || data.status === "stopped") {
-          // Potentially load historical chart data if backend supports it
-          // For this simulation, we might only have the final values.
-           setChartData([{ epoch: data.current_epoch, accuracy: data.accuracy, loss: data.loss, avg_zpe: data.zpe_effects.reduce((a,b)=>a+b,0) / (data.zpe_effects.length || 1)}]);
-        }
+        // Attempt to parse log messages for chart data if job is completed/failed/stopped
+        if (data.log_messages && (data.status === "completed" || data.status === "failed" || data.status === "stopped")) {
+          const parsedChartData = data.log_messages
+            .map(log => {
+              const match = log.match(/Epoch (\d+)\/\d+ - Accuracy: ([\d.]+)\%, Loss: ([\d.]+)/);
+              if (match) {
+                return {
+                  epoch: parseInt(match[1]),
+                  accuracy: parseFloat(match[2]),
+                  loss: parseFloat(match[3]),
+                  avg_zpe: data.zpe_effects.reduce((a,b)=>a+b,0) / (data.zpe_effects.length || 1)
+                };
+              }
+              return null;
+            })
+            .filter(Boolean)
+            .sort((a,b) => a!.epoch - b!.epoch);
 
+            if (parsedChartData.length > 0) {
+              setChartData(parsedChartData as any[]);
+            } else if (data.status === "completed") { // Fallback for completed jobs if logs don't parse
+               setChartData([{ epoch: data.current_epoch, accuracy: data.accuracy, loss: data.loss, avg_zpe: data.zpe_effects.reduce((a,b)=>a+b,0) / (data.zpe_effects.length || 1)}]);
+            }
+        }
       } catch (error) {
-        toast({ title: "Error fetching job details", description: error.message, variant: "destructive"});
+        toast({ title: "Error fetching job details", description: (error as Error).message, variant: "destructive"});
       }
-    } else { // If job is active or pending, start polling it
-      pollJobStatus(jobId); // Initial poll
+    } else { 
+      // If job is running or pending, start polling
+      pollJobStatus(jobId); 
       const intervalId = setInterval(() => pollJobStatus(jobId), 2000);
       setPollingIntervalId(intervalId);
     }
   };
 
-  const renderParamArrayFields = (paramName: "momentumParams" | "strengthParams" | "noiseParams" | "couplingParams", labelPrefix: string) => (
+  const renderParamArrayFields = (paramName: "momentumParams" | "strengthParams" | "noiseParams", labelPrefix: string) => (
     <div className="space-y-2">
       <Label className="text-base">{labelPrefix} (6 layers)</Label>
       <div className="grid grid-cols-3 gap-2">
@@ -219,7 +230,7 @@ export default function TrainModelPage() {
           <div key={index} className="space-y-1">
             <Label htmlFor={`${paramName}.${index}`} className="text-xs">L{index + 1}</Label>
             <Controller
-              name={`${paramName}.${index}`}
+              name={`${paramName}.${index}` as any}
               control={control}
               render={({ field, fieldState }) => (
                 <>
@@ -245,7 +256,6 @@ export default function TrainModelPage() {
     <div className="container mx-auto p-4 md:p-6">
       <h1 className="text-3xl font-bold tracking-tight mb-8 text-primary">ZPE Model Training Orchestrator</h1>
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Training Configuration Form */}
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Settings className="h-5 w-5" /> Training Configuration</CardTitle>
@@ -271,12 +281,6 @@ export default function TrainModelPage() {
                   {renderParamArrayFields("momentumParams", "Momentum Parameters")}
                   {renderParamArrayFields("strengthParams", "Strength Parameters")}
                   {renderParamArrayFields("noiseParams", "Noise Parameters")}
-                  {renderParamArrayFields("couplingParams", "Coupling Parameters")}
-                  <div>
-                    <Label htmlFor="cycleLength">Cycle Length (Sequence Length for ZPE)</Label>
-                    <Controller name="cycleLength" control={control} render={({ field }) => <Input {...field} type="number" min="1" />} />
-                     <p className="text-xs text-muted-foreground mt-1">Corresponds to `sequence_length` in Colab. User defined as 2<sup>5</sup>=32. This parameter might relate to concepts of geometric ratios (e.g., 32 * 11/16) in ZPE theory.</p>
-                  </div>
                 </TabsContent>
                 <TabsContent value="quantum" className="space-y-3 pt-3">
                   <FieldControllerSwitch control={control} name="quantumMode" label="Enable Quantum Mode" />
@@ -291,7 +295,6 @@ export default function TrainModelPage() {
           </CardContent>
         </Card>
 
-        {/* Training Job Monitor */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Zap className="h-5 w-5 text-primary"/> Training Monitor</CardTitle>
@@ -307,7 +310,7 @@ export default function TrainModelPage() {
                 <div className="flex items-center justify-between">
                   <Badge variant={
                     activeJob.status === "running" ? "default" :
-                    activeJob.status === "completed" ? "default" : // Keep success green
+                    activeJob.status === "completed" ? "default" : 
                     activeJob.status === "failed" || activeJob.status === "stopped" ? "destructive" : "secondary"
                   }
                   className={
@@ -359,7 +362,6 @@ export default function TrainModelPage() {
           </CardContent>
         </Card>
 
-        {/* Job History List - This replaces the old "Configurations" page logic */}
         <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><List className="h-5 w-5"/> Training Job History</CardTitle>
@@ -396,7 +398,7 @@ export default function TrainModelPage() {
                           >{job.status}</Badge>
                         </TableCell>
                         <TableCell>{job.accuracy > 0 ? `${job.accuracy.toFixed(2)}%` : '-'}</TableCell>
-                        <TableCell>{job.current_epoch}/{job.total_epochs}</TableCell>
+                        <TableCell>{`${job.current_epoch}/${job.total_epochs}`}</TableCell>
                         <TableCell>
                           <Button variant="outline" size="sm" onClick={() => handleViewJobDetails(job.job_id)}>
                             <ExternalLink className="mr-1 h-3 w-3"/>View
@@ -415,7 +417,6 @@ export default function TrainModelPage() {
   );
 }
 
-// Helper component for form fields
 const FieldController = ({ control, name, label, type = "text", placeholder, min, step }) => (
   <div className="space-y-1">
     <Label htmlFor={name}>{label}</Label>
