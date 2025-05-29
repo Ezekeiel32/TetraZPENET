@@ -72,7 +72,7 @@ export default function TrainModelPage() {
   const fetchJobsList = useCallback(async () => {
     setIsLoadingJobs(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/jobs?limit=20`);
+      const response = await fetch(API_BASE_URL + '/jobs?limit=20');
       if (!response.ok) throw new Error("Failed to fetch jobs list");
       const data = await response.json();
       setJobsList(data.jobs || []);
