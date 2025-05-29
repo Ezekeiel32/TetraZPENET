@@ -26,9 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark"> {/* Apply dark class by default */}
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
         <AppLayout>{children}</AppLayout>
         <Toaster />
       </body>
