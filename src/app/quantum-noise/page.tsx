@@ -1,10 +1,11 @@
+
 "use client";
 import React, { useState, useEffect } from "react";
 // import { QuantumNoiseSample } from "@/entities/all"; // Commented out
 import type { QuantumNoiseSample } from "@/types/entities";
 import {
   Atom,
-  // Braces, // Not used
+  Braces, // Added Braces
   FileDown,
   RefreshCw,
   Boxes,
@@ -18,14 +19,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+// import { InvokeLLM } from "@/integrations/Core"; // Commented out
+import type { InvokeLLMResponse } from "@/types/entities"; // Using existing types
 import { InvokeLLM } from "@/types/entities"; // Using placeholder from types
 
-import QuantumNoiseGenerator from "@/components/quantum/QuantumNoiseGenerator"; // Adjusted path
-import QuantumDistribution from "@/components/quantum/QuantumDistribution"; // Adjusted path
+import QuantumNoiseGenerator from "@/components/quantum/QuantumNoiseGenerator"; 
+import QuantumDistribution from "@/components/quantum/QuantumDistribution"; 
 
 export default function QuantumNoisePage() {
-  const [samples, setSamples] = useState<QuantumNoiseSample[]>([]); // eslint-disable-line @typescript-eslint/no-unused-vars
-  const [activeTab, setActiveTab] = useState("generator");  // eslint-disable-line @typescript-eslint/no-unused-vars
+  const [samples, setSamples] = useState<QuantumNoiseSample[]>([]); 
+  const [activeTab, setActiveTab] = useState("generator");  
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [quantumExplanation, setQuantumExplanation] = useState("");
@@ -36,52 +39,22 @@ export default function QuantumNoisePage() {
     coupling: 0.76 // Conceptual coupling if used in a model
   });
   const [sampleValues, setSampleValues] = useState<number[]>([]);
-  const [viewMode, setViewMode] = useState("distribution");
+  const [viewMode, setViewMode] = useState<"distribution" | "waveform">("distribution");
 
-  const generateQuantumNoiseDemo = (numQubits: number) => {
+  const generateQuantumNoiseDemo = useCallback((numQubits: number) => {
     const data = [];
     for (let i = 0; i < numQubits; i++) {
       const quantumBit = Math.random() > 0.5 ? 1 : 0; // Simulate qubit measurement (0 or 1)
-      // Transform bit to [-1, 1] range, apply tanh strength, then add classical noise if desired
+      // Transform bit to [-1, 1] range, apply tanh strength
       let perturbation = Math.tanh((2.0 * quantumBit - 1.0) * parameters.tanhStrength);
-      // This example doesn't use parameters.noise directly in this specific demo generation
       data.push(perturbation);
     }
     return data;
-  };
+  }, [parameters.tanhStrength]);
   
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        // const noiseSamplesData = await QuantumNoiseSample.list(); // COMMENTED OUT
-        const noiseSamplesData: QuantumNoiseSample[] = []; // Placeholder
-        setSamples(noiseSamplesData);
-        
-        if (noiseSamplesData.length === 0) {
-          const generatedData = generateQuantumNoiseDemo(parameters.numQubits);
-          setSampleValues(generatedData);
-        } else {
-          setSampleValues(noiseSamplesData[0]?.values || generateQuantumNoiseDemo(parameters.numQubits));
-        }
-        
-        fetchQuantumExplanation();
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        // Fallback if fetching fails
-        setSampleValues(generateQuantumNoiseDemo(parameters.numQubits));
-        fetchQuantumExplanation(); // Attempt to fetch explanation even if sample list fails
-      }
-      setIsLoading(false);
-    };
-
-    fetchData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // parameters removed from deps to avoid re-generating on every param change for now
-
-  const fetchQuantumExplanation = async () => {
+  const fetchQuantumExplanation = useCallback(async () => {
     try {
-      const result = await InvokeLLM({ // Placeholder call
+      const result: InvokeLLMResponse = await InvokeLLM({ 
         prompt: "Explain in about 150 words how quantum fluctuations and zero-point energy could theoretically affect neural networks. Focus on quantum noise and its potential impact on network performance.",
         response_json_schema: { type: "object", properties: { explanation: { type: "string" } } }
       });
@@ -95,7 +68,35 @@ export default function QuantumNoisePage() {
       console.error("Error fetching explanation:", error);
       setQuantumExplanation("Quantum fluctuations, derived from zero-point energy (ZPE) in quantum field theory, represent the lowest possible energy state of a quantum mechanical system. When applied to neural networks, these microscopic quantum effects could create non-deterministic perturbations in network weights. This quantum noise might help escape local minima during training by inducing small, random weight adjustments. The theoretical advantage comes from quantum superposition, allowing the network to probabilistically explore multiple parameter configurations simultaneously. By carefully calibrating the quantum coupling strength, these fluctuations could enhance generalization by preventing overfitting to training data. This approach combines quantum mechanical principles with classical neural computation, potentially offering advantages in specific learning scenarios where controlled randomness benefits optimization.");
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        // const noiseSamplesData = await QuantumNoiseSample.list(); // Data fetching commented out
+        const noiseSamplesData: QuantumNoiseSample[] = []; // Placeholder
+        setSamples(noiseSamplesData);
+        
+        if (noiseSamplesData.length === 0) {
+          const generatedData = generateQuantumNoiseDemo(parameters.numQubits);
+          setSampleValues(generatedData);
+        } else {
+          setSampleValues(noiseSamplesData[0]?.values || generateQuantumNoiseDemo(parameters.numQubits));
+        }
+        
+        fetchQuantumExplanation();
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        setSampleValues(generateQuantumNoiseDemo(parameters.numQubits));
+        fetchQuantumExplanation(); 
+      }
+      setIsLoading(false);
+    };
+
+    fetchData();
+  }, [parameters.numQubits, generateQuantumNoiseDemo, fetchQuantumExplanation]);
+
 
   const handleGenerateNoise = () => {
     setIsGenerating(true);
@@ -103,10 +104,10 @@ export default function QuantumNoisePage() {
       const newData = generateQuantumNoiseDemo(parameters.numQubits);
       setSampleValues(newData);
       setIsGenerating(false);
-    }, 1500); // Simulate generation time
+    }, 1500); 
   };
 
-  const handleParameterChange = (param: string, value: number | number[]) => {
+  const handleParameterChange = (param: keyof typeof parameters, value: number | number[]) => {
     setParameters(prev => ({
       ...prev,
       [param]: Array.isArray(value) ? value[0] : value
@@ -157,11 +158,11 @@ export default function QuantumNoisePage() {
   ];
   
   if (isLoading) {
-    return <div className="p-6 text-center">Loading quantum noise data...</div>;
+    return <div className="container mx-auto p-4 md:p-6 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto my-10 text-primary" /> Loading quantum noise data...</div>;
   }
 
   return (
-    <div className="p-6 bg-background text-foreground">
+    <div className="container mx-auto p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col space-y-2 mb-8">
           <h1 className="text-3xl font-bold tracking-tight">Quantum Noise Analysis</h1>
@@ -170,7 +171,7 @@ export default function QuantumNoisePage() {
           </p>
         </div>
 
-        <Tabs defaultValue="generator" className="space-y-4" onValueChange={setActiveTab}>
+        <Tabs defaultValue="generator" className="space-y-4" onValueChange={(value) => setActiveTab(value as "generator" | "analysis" | "application")}>
           <TabsList>
             <TabsTrigger value="generator">Noise Generator</TabsTrigger>
             <TabsTrigger value="analysis">Distribution Analysis</TabsTrigger>
@@ -234,23 +235,21 @@ export default function QuantumNoisePage() {
               <div className="space-y-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Generator Parameters</CardTitle>
-                    <CardDescription>Adjust quantum circuit parameters</CardDescription>
+                    <CardTitle className="text-base">Generator Parameters</CardTitle>
+                    <CardDescription className="text-xs">Adjust quantum circuit parameters</CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
+                  <CardContent className="space-y-3">
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-sm">
                         <Label htmlFor="numQubits">Number of Qubits</Label>
-                        <span className="font-mono">{parameters.numQubits}</span>
+                        <span className="font-mono text-xs">{parameters.numQubits}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Button 
                           variant="outline" 
-                          size="icon" 
+                          size="icon" className="h-7 w-7"
                           onClick={() => handleParameterChange('numQubits', Math.max(8, parameters.numQubits - 8))}
-                        >
-                          -
-                        </Button>
+                        > - </Button>
                         <Slider
                           id="numQubits"
                           min={8} max={64} step={8}
@@ -259,33 +258,31 @@ export default function QuantumNoisePage() {
                           className="flex-1"
                         />
                         <Button 
-                          variant="outline" size="icon"
+                          variant="outline" size="icon" className="h-7 w-7"
                           onClick={() => handleParameterChange('numQubits', Math.min(64, parameters.numQubits + 8))}
-                        >
-                          +
-                        </Button>
+                        > + </Button>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-sm">
                         <Label htmlFor="tanhStrength">Tanh Strength</Label>
-                        <span className="font-mono">{parameters.tanhStrength.toFixed(2)}</span>
+                        <span className="font-mono text-xs">{parameters.tanhStrength.toFixed(2)}</span>
                       </div>
                       <Slider id="tanhStrength" min={0.1} max={1.0} step={0.05} value={[parameters.tanhStrength]}
                         onValueChange={(value) => handleParameterChange('tanhStrength', value)} className="flex-1" />
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-sm">
                         <Label htmlFor="noise">Classical Noise Factor</Label>
-                        <span className="font-mono">{parameters.noise.toFixed(2)}</span>
+                        <span className="font-mono text-xs">{parameters.noise.toFixed(2)}</span>
                       </div>
                       <Slider id="noise" min={0} max={0.5} step={0.01} value={[parameters.noise]}
                         onValueChange={(value) => handleParameterChange('noise', value)} className="flex-1" />
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-sm">
                         <Label htmlFor="coupling">Conceptual Coupling</Label>
-                        <span className="font-mono">{parameters.coupling.toFixed(2)}</span>
+                        <span className="font-mono text-xs">{parameters.coupling.toFixed(2)}</span>
                       </div>
                       <Slider id="coupling" min={0.5} max={1.0} step={0.01} value={[parameters.coupling]}
                         onValueChange={(value) => handleParameterChange('coupling', value)} className="flex-1" />
@@ -293,8 +290,8 @@ export default function QuantumNoisePage() {
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardHeader><CardTitle>Sample Statistics</CardTitle></CardHeader>
-                  <CardContent className="space-y-2">
+                  <CardHeader className="pb-2 pt-4"><CardTitle className="text-base">Sample Statistics</CardTitle></CardHeader>
+                  <CardContent className="space-y-1 text-sm">
                     <div className="flex justify-between"><span className="text-muted-foreground">Mean:</span><span className="font-mono">{stats.mean.toFixed(4)}</span></div>
                     <div className="flex justify-between"><span className="text-muted-foreground">Std Dev:</span><span className="font-mono">{stats.std.toFixed(4)}</span></div>
                     <div className="flex justify-between"><span className="text-muted-foreground">Min Value:</span><span className="font-mono">{stats.min.toFixed(4)}</span></div>
@@ -305,11 +302,11 @@ export default function QuantumNoisePage() {
             </div>
             <Card>
               <CardHeader>
-                <CardTitle>What are Quantum Fluctuations?</CardTitle>
+                <CardTitle className="text-lg">What are Quantum Fluctuations?</CardTitle>
                 <CardDescription>Understanding quantum noise in neural networks</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="leading-relaxed text-muted-foreground">
+                <p className="leading-relaxed text-muted-foreground text-sm">
                   {quantumExplanation || "Loading explanation..."}
                 </p>
               </CardContent>
@@ -338,7 +335,8 @@ export default function QuantumNoisePage() {
                       <LineChart data={generateResponseData()}>
                         <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" />
                         <YAxis domain={[-1, 1]}/><Tooltip />
-                        <Line type="monotone" dataKey="value" stroke="hsl(var(--chart-2))" /> {/* Adjusted color */}
+                        <Legend />
+                        <Line type="monotone" dataKey="value" stroke="hsl(var(--chart-2))" name="Tanh Output" />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
@@ -356,7 +354,8 @@ export default function QuantumNoisePage() {
                     <BarChart data={spectralData}>
                       <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" />
                       <YAxis /><Tooltip />
-                      <Bar dataKey="value" fill="hsl(var(--chart-1))" /> {/* Adjusted color */}
+                      <Legend />
+                      <Bar dataKey="value" fill="hsl(var(--chart-1))" name="Amplitude" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -399,8 +398,8 @@ export default function QuantumNoisePage() {
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={zpeFlowEffectData}>
                         <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" />
-                        <YAxis yAxisId="left" orientation="left" stroke="hsl(var(--chart-1))" />
-                        <YAxis yAxisId="right" orientation="right" stroke="hsl(var(--destructive))" />
+                        <YAxis yAxisId="left" orientation="left" stroke="hsl(var(--chart-1))" name="Accuracy" />
+                        <YAxis yAxisId="right" orientation="right" stroke="hsl(var(--destructive))" name="Overfitting" />
                         <Tooltip /><Legend/>
                         <Line yAxisId="left" type="monotone" dataKey="Accuracy" stroke="hsl(var(--chart-1))" />
                         <Line yAxisId="right" type="monotone" dataKey="Overfitting" stroke="hsl(var(--destructive))" />
@@ -454,3 +453,4 @@ def generate_quantum_noise(num_channels, zpe_idx):
     </div>
   );
 }
+
