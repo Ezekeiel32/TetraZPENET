@@ -1,9 +1,11 @@
+
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react"; // Added Suspense
 // import { ModelConfig, PerformanceMetric } from "@/entities/all"; // Commented out
 // import { InvokeLLM } from "@/integrations/Core"; // Commented out
 import type { ModelConfig, PerformanceMetric, InvokeLLMResponse } from "@/types/entities";
-import { InvokeLLM } from "@/types/entities"; // Using placeholder from types
+import { getInitialZpeAnalysisFlow, type GetInitialZpeAnalysisOutput } from "@/ai/flows/get-initial-zpe-analysis-flow";
+import { getZpeChatResponseFlow, type GetZpeChatResponseInput, type GetZpeChatResponseOutput } from "@/ai/flows/get-zpe-chat-response-flow";
 
 import { 
   Brain, Sparkles, TrendingUp, Lightbulb, MessageSquare, Send, Loader2, 
@@ -15,8 +17,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { useRouter, useSearchParams, usePathname } from "next/navigation"; // Using Next.js navigation
+import { useRouter, useSearchParams, usePathname } from "next/navigation"; 
+import { toast } from "@/hooks/use-toast";
 
 interface ChatMessage {
   id: number;
@@ -25,6 +27,7 @@ interface ChatMessage {
   suggestions?: string[];
   followUp?: string[];
   timestamp: Date;
+  formattedTimestamp?: string; 
 }
 
 interface OptimizationSuggestion {
@@ -32,7 +35,7 @@ interface OptimizationSuggestion {
   description: string;
   priority: string;
   expected_impact: string;
-  suggested_parameters?: Partial<any>; // Consider defining a stricter type if possible
+  suggested_parameters?: Partial<any>; 
 }
 
 interface AiInsights {
@@ -43,14 +46,14 @@ interface AiInsights {
 }
 
 
-export default function AIAnalysisPage() {
+function AIAnalysisPageComponent() { // Renamed to avoid conflict with default export
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
 
   const [configs, setConfigs] = useState<ModelConfig[]>([]);
-  const [metrics, setMetrics] = useState<PerformanceMetric[]>([]); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const [metrics, setMetrics] = useState<PerformanceMetric[]>([]); 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: 1,
@@ -62,33 +65,22 @@ export default function AIAnalysisPage() {
   const [currentMessage, setCurrentMessage] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false); 
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
-  const [aiInsights, setAiInsights] = useState<AiInsights | null>(null);
-  const [optimizationSuggestions, setOptimizationSuggestions] = useState<OptimizationSuggestion[]>([]);
+  const [aiInsights, setAiInsights] = useState<GetInitialZpeAnalysisOutput | null>(null);
+  const [optimizationSuggestions, setOptimizationSuggestions] = useState<GetInitialZpeAnalysisOutput['optimization_recommendations']>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // const modelConfigsData = await ModelConfig.list(); // COMMENTED OUT
-        // const performanceMetricsData = await PerformanceMetric.list(); // COMMENTED OUT
-        const modelConfigsData: ModelConfig[] = []; // Placeholder
-        const performanceMetricsData: PerformanceMetric[] = []; // Placeholder
+        const modelConfigsData: ModelConfig[] = []; 
+        const performanceMetricsData: PerformanceMetric[] = []; 
 
         setConfigs(modelConfigsData);
         setMetrics(performanceMetricsData);
         
-        if (modelConfigsData.length > 0) {
-          generateInitialAnalysis(modelConfigsData, performanceMetricsData);
-        } else {
-          // Provide default insights if no data
-           setAiInsights({
-            performance_assessment: "No model configurations found. Please train some models to get an analysis.",
-            quantum_insights: "Quantum effects can be analyzed once models using quantum noise are trained and their performance is logged.",
-            optimization_recommendations: [],
-            attention_areas: ["Train models to enable analysis."]
-          });
-        }
+        generateInitialAnalysis(modelConfigsData, performanceMetricsData);
+        
       } catch (error) {
         console.error("Error fetching data:", error);
          setAiInsights({
@@ -113,50 +105,40 @@ export default function AIAnalysisPage() {
         bestAccuracy: currentConfigs.length > 0 ? Math.max(...currentConfigs.map(c => c.accuracy || 0)) : 0,
         averageAccuracy: currentConfigs.length > 0 ? currentConfigs.reduce((sum, c) => sum + (c.accuracy || 0), 0) / currentConfigs.length : 0,
         quantumConfigs: currentConfigs.filter(c => c.use_quantum_noise).length,
-        recentMetricsCount: currentMetrics.slice(-10).length
+        recentMetricsCount: currentMetrics.slice(-10).length 
       };
-
-      const prompt = `Analyze this ZPE quantum neural network performance data.
-        Data Summary:
-        - Total Model Configurations: ${analysisData.totalConfigs}
-        - Best Accuracy Achieved: ${analysisData.bestAccuracy.toFixed(2)}%
-        - Average Accuracy: ${analysisData.averageAccuracy.toFixed(2)}%
-        - Configurations Using Quantum Noise: ${analysisData.quantumConfigs}
-        - Recent Training Metrics Available: ${analysisData.recentMetricsCount}
-        
-        Please provide:
-        1. A concise performance_assessment (string).
-        2. Key quantum_insights regarding quantum vs non-quantum configurations (string).
-        3. An array of 2-3 specific optimization_recommendations. Each recommendation should be an object with:
-           - title (string, e.g., "Adjust ZPE Momentum for Layer 3")
-           - description (string, brief explanation)
-           - priority (string: "High", "Medium", or "Low")
-           - expected_impact (string, e.g., "Potential +0.5% accuracy")
-           - suggested_parameters (object, optional): If applicable, provide specific parameter values to try. This object should match the structure used in the TrainModel page: { totalEpochs (number), learningRate (number), batchSize (number, e.g., 32, 64, 128, 256), quantumMode (boolean), momentumParams (array of 6 numbers between 0.5-0.95), strengthParams (array of 6 numbers between 0.1-0.8), noiseParams (array of 6 numbers between 0.05-0.5), weightDecay (number), quantumCircuitSize (number), labelSmoothing (number) }. If not providing specific parameters for a suggestion, make this field null.
-        4. An array of attention_areas (strings, 2-3 areas that need attention).
-        
-        Focus on ZPE flow effects and quantum noise impact. Be actionable.`;
       
-      const result: InvokeLLMResponse = await InvokeLLM({ // Using placeholder
-        prompt: prompt,
-        response_json_schema: { /* ... schema ... */ } // Schema omitted for brevity, but present in your original code
-      });
+      const result = await getInitialZpeAnalysisFlow(analysisData);
 
       if (result) {
-        setAiInsights(result as AiInsights);
+        setAiInsights(result);
         setOptimizationSuggestions(result.optimization_recommendations || []);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error generating initial analysis:", error);
+      toast({title: "Error", description: "Could not generate initial analysis: " + error.message, variant: "destructive"});
       setAiInsights({
         performance_assessment: "Could not generate analysis due to an error.",
         quantum_insights: "Please check console for details.",
         optimization_recommendations: [],
-        attention_areas: ["LLM call failed."]
+        attention_areas: ["AI flow call failed."]
       });
     }
     setIsGeneratingInsights(false);
   };
+  
+  useEffect(() => {
+    if (chatMessages.some(msg => !msg.formattedTimestamp)) {
+      setChatMessages(prevMessages =>
+        prevMessages.map(msg =>
+          msg.formattedTimestamp
+            ? msg
+            : { ...msg, formattedTimestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+        )
+      );
+    }
+  }, [chatMessages]);
+
 
   const handleSendMessage = async () => {
     if (!currentMessage.trim()) return;
@@ -167,48 +149,71 @@ export default function AIAnalysisPage() {
     setIsAnalyzing(true);
 
     try {
-      // ... (contextData and datasetContext logic as in your code) ...
-      const result: InvokeLLMResponse = await InvokeLLM({ // Placeholder call
-        prompt: `User Question: "${tempCurrentMessage}" ... (rest of prompt logic)`,
-        response_json_schema: { /* ... schema ... */ } // Schema omitted
-      });
+      const contextSummary = `Current System State: ${configs.length} model configs, best accuracy ${aiInsights?.performance_assessment?.split("accuracy of ")[1]?.split("%")[0] || "N/A"}%. Recent metrics: ${metrics.length}. User Objective (if any from prev interactions): None explicitly set yet.`;
+      
+      const inputForAI: GetZpeChatResponseInput = {
+          userPrompt: tempCurrentMessage,
+          systemContext: contextSummary,
+          previousMessages: chatMessages.slice(-5).map(m => ({role: m.type, content: m.content})) // Send last 5 messages as history
+      };
+      const result: GetZpeChatResponseOutput = await getZpeChatResponseFlow(inputForAI);
       const aiMessage: ChatMessage = {
         id: Date.now() + 1, type: "ai",
         content: result.response || "I'm having trouble. Could you rephrase?",
-        suggestions: result.suggestions || [], followUp: result.follow_up_questions || [],
+        suggestions: result.suggestions || [], followUp: result.followUpQuestions || [],
         timestamp: new Date()
       };
       setChatMessages(prev => [...prev, aiMessage]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error getting AI response:", error);
-      // ... (error message handling) ...
+      const aiErrorMessage: ChatMessage = {
+        id: Date.now() + 1, type: "ai",
+        content: "Sorry, I encountered an error trying to respond: " + error.message,
+        timestamp: new Date()
+      };
+      setChatMessages(prev => [...prev, aiErrorMessage]);
+       toast({title: "Error", description: "Could not get AI response: " + error.message, variant: "destructive"});
     }
     setIsAnalyzing(false);
   };
   
   const handleLoadSuggestionInTrainer = (suggestionParams: any) => {
-    if (!suggestionParams) { /* ... error handling ... */ return; }
-    const paramsToPass = { /* ... construct params as in your code ... */ 
+    if (!suggestionParams) { toast({title: "Error", description: "No parameters provided for suggestion.", variant: "destructive"}); return; }
+    
+    // Merge with sensible defaults if AI doesn't provide all params
+    const paramsToPass: any = { 
         modelName: `AI-Optimized-${Date.now().toString().slice(-4)}`,
-        totalEpochs: suggestionParams.totalEpochs || 40,
-        learningRate: suggestionParams.learningRate || 0.001,
-        batchSize: suggestionParams.batchSize || 128,
-        quantumMode: typeof suggestionParams.quantumMode === 'boolean' ? suggestionParams.quantumMode : true,
-        momentumParams: suggestionParams.momentumParams && suggestionParams.momentumParams.length === 6 ? suggestionParams.momentumParams : [0.9, 0.85, 0.8, 0.75, 0.7, 0.65],
-        strengthParams: suggestionParams.strengthParams && suggestionParams.strengthParams.length === 6 ? suggestionParams.strengthParams : [0.35, 0.33, 0.31, 0.60, 0.27, 0.50],
-        noiseParams: suggestionParams.noiseParams && suggestionParams.noiseParams.length === 6 ? suggestionParams.noiseParams : [0.25, 0.22, 0.20, 0.30, 0.18, 0.20],
-        weightDecay: suggestionParams.weightDecay || 0.0001, 
-        quantumCircuitSize: suggestionParams.quantumCircuitSize || 32,
-        labelSmoothing: suggestionParams.labelSmoothing || 0.03
+        totalEpochs: 40, learningRate: 0.001, batchSize: 128, quantumMode: true,
+        momentumParams: [0.9, 0.85, 0.8, 0.75, 0.7, 0.65],
+        strengthParams: [0.35, 0.33, 0.31, 0.60, 0.27, 0.50],
+        noiseParams: [0.25, 0.22, 0.20, 0.30, 0.18, 0.20],
+        weightDecay: 0.0001, quantumCircuitSize: 32, labelSmoothing: 0.03,
+        ...suggestionParams // AI suggestions override defaults
     };
+    
     const query = new URLSearchParams();
-    query.set('aiParams', JSON.stringify(paramsToPass));
+    // Iterate over known TrainingParameter keys to avoid passing unknown fields
+    const knownKeys: (keyof typeof paramsToPass)[] = [
+      'modelName', 'totalEpochs', 'learningRate', 'batchSize', 'quantumMode',
+      'momentumParams', 'strengthParams', 'noiseParams', 'weightDecay',
+      'quantumCircuitSize', 'labelSmoothing', 'baseConfigId'
+    ];
+
+    knownKeys.forEach(key => {
+      if (paramsToPass[key] !== undefined) {
+        if (Array.isArray(paramsToPass[key])) {
+          query.set(key, JSON.stringify(paramsToPass[key]));
+        } else {
+          query.set(key, String(paramsToPass[key]));
+        }
+      }
+    });
+
     router.push(`/train?${query.toString()}`);
   };
 
   const handleQuickQuestion = (question: string) => { setCurrentMessage(question); };
-  const formatTimestamp = (timestamp: Date) => timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const quickQuestions = [ /* ... as in your code ... */ 
+  const quickQuestions = [ 
     "How can I improve my model's accuracy?",
     "What's the optimal ZPE momentum configuration?",
     "How does quantum noise affect convergence?",
@@ -263,7 +268,7 @@ export default function AIAnalysisPage() {
                                 {message.followUp.map((question, idx) => (<button key={idx} onClick={() => handleQuickQuestion(question)} className="text-xs bg-background/20 rounded p-1 hover:bg-background/30 transition-colors block w-full text-left">{question}</button>))}
                               </div>
                             )}
-                            <div className="text-xs opacity-70 mt-1 text-right">{formatTimestamp(message.timestamp)}</div>
+                            <div className="text-xs opacity-70 mt-1 text-right">{message.formattedTimestamp || "..."}</div>
                           </div>
                         </div>
                       ))}
@@ -325,5 +330,15 @@ export default function AIAnalysisPage() {
         </Tabs>
       </div>
     </div>
+  );
+}
+
+
+// This component will be wrapped by Suspense
+export default function AIAnalysisPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <span className="ml-2">Loading AI Analysis...</span></div>}>
+      <AIAnalysisPageComponent />
+    </Suspense>
   );
 }
