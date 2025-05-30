@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   PanelLeft, Home, Cpu, Zap, Atom, BarChart3, Settings, PlayCircle, Lightbulb, 
   Replace, Cog, Scaling, Box, Share2, Wrench, Moon, Sun, BrainCircuit, Globe, 
-  ScatterChart, IterationCw, Database, MessageSquare, Signal, SlidersHorizontal, Monitor, TrendingUp // Added Monitor and TrendingUp
+  ScatterChart, IterationCw, Database, MessageSquare, Signal, SlidersHorizontal, Monitor, TrendingUp, Wand2 // Added Wand2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -23,10 +23,10 @@ const mainNavItems = [
 
 const advancedToolsNavItems = [
   { href: "/zpe-flow-analysis", label: "ZPE Flow Analysis", icon: SlidersHorizontal },
-  { href: "/hnn-advisor", label: "HNN Advisor", icon: BrainCircuit }, 
+  { href: "/zpe-flow", label: "HNN Advisor", icon: BrainCircuit }, // Kept old /zpe-flow as HNN Advisor
   { href: "/quantum-noise", label: "Quantum Noise", icon: Atom },
   { href: "/rf-generator", label: "RF Generator", icon: Signal },
-  { href: "/ai-analysis", label: "AI Analysis", icon: MessageSquare },
+  { href: "/ai-analysis", label: "AI Analysis Chat", icon: MessageSquare },
 ];
 
 const visNavItems = [
@@ -43,6 +43,7 @@ const aiFlowsNavItems = [
   { href: "/ai/quantize-model", label: "Quantize Model", icon: Box },
   { href: "/ai/extract-components", label: "Extract Components", icon: Share2 },
   { href: "/ai/configure-model", label: "Configure Model", icon: Wrench },
+  { href: "/ai/invoke-llm", label: "Invoke LLM", icon: Wand2 }, // Added new generic LLM invoker
 ];
 
 
@@ -52,10 +53,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [isDarkMode, setIsDarkMode] = useState(true); 
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedTheme = localStorage.getItem("theme");
+      if (storedTheme) {
+        setIsDarkMode(storedTheme === "dark");
+      } else {
+        // If no theme in localStorage, check system preference
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        setIsDarkMode(prefersDark);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add("dark");
+      if (typeof window !== "undefined") localStorage.setItem("theme", "dark");
     } else {
       document.documentElement.classList.remove("dark");
+      if (typeof window !== "undefined") localStorage.setItem("theme", "light");
     }
   }, [isDarkMode]);
 
@@ -79,7 +95,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           href={item.href}
           className={cn(
             "flex items-center px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-            (pathname === item.href || (item.href && pathname.startsWith(item.href + '/') && item.href !== "/"))
+            (pathname === item.href || (pathname.startsWith(item.href + '/') && item.href !== "/dashboard" && item.href !== "/")) || (pathname === "/" && item.href === "/dashboard")
               ? "bg-primary/10 text-primary"
               : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           )}
