@@ -1,13 +1,11 @@
-// src/components/dashboard/ModelSummary.tsx
 "use client";
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CircuitBoard, Zap, Shield, Atom } from "lucide-react";
 
 export default function ModelSummary() {
   return (
-    <Card className="lg:col-span-1">
+    <Card> {/* className="lg:col-span-1" removed to be controlled by parent grid */}
       <CardHeader>
         <CardTitle>Model Architecture</CardTitle>
       </CardHeader>

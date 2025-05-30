@@ -1,6 +1,4 @@
-// src/components/dashboard/LatestPerformance.tsx
 "use client";
-
 import React from 'react';
 import { 
   Card, 
@@ -89,7 +87,7 @@ export default function LatestPerformance() {
                 <TableRow>
                   <TableCell className="font-medium">Training Accuracy</TableCell>
                   <TableCell className="text-right">
-                    <Badge variant="outline" className="bg-blue-100 dark:bg-blue-900 border-0 text-foreground">
+                    <Badge variant="outline" className="bg-blue-100 dark:bg-blue-900/30 border-0 text-foreground">
                       {lastEpoch.train_acc.toFixed(2)}%
                     </Badge>
                   </TableCell>
@@ -97,7 +95,7 @@ export default function LatestPerformance() {
                 <TableRow>
                   <TableCell className="font-medium">Validation Accuracy</TableCell>
                   <TableCell className="text-right">
-                    <Badge variant="outline" className="bg-green-100 dark:bg-green-900 border-0 text-foreground">
+                    <Badge variant="outline" className="bg-green-100 dark:bg-green-900/30 border-0 text-foreground">
                       {lastEpoch.val_acc.toFixed(2)}%
                     </Badge>
                   </TableCell>
@@ -117,7 +115,7 @@ export default function LatestPerformance() {
                 <TableRow>
                   <TableCell className="font-medium">ZPE Effect</TableCell>
                   <TableCell className="text-right">
-                    <Badge variant="outline" className="bg-purple-100 dark:bg-purple-900 border-0 text-foreground">
+                    <Badge variant="outline" className="bg-purple-100 dark:bg-purple-900/30 border-0 text-foreground">
                       {lastEpoch.zpe_effect.toFixed(3)}
                     </Badge>
                   </TableCell>
@@ -130,10 +128,10 @@ export default function LatestPerformance() {
               <div className="grid grid-cols-6 gap-2">
                 {[0.12, 0.18, 0.24, 0.35, 0.11, 0.09].map((value, i) => (
                   <div key={i} className="text-center">
-                    <div className="w-full bg-muted h-2 rounded-full mb-1">
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-1">
                       <div
                         className="bg-purple-500 h-2 rounded-full"
-                        style={{ width: `${Math.min(100, (value / 0.35) * 100)}%` }}
+                        style={{ width: `${(value / 0.35) * 100}%` }}
                       ></div>
                     </div>
                     <span className="text-xs text-muted-foreground">{i+1}</span>

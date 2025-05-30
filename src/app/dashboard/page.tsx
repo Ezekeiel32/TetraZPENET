@@ -1,22 +1,21 @@
-// src/app/dashboard/page.tsx
 "use client";
-
 import React, { useState, useEffect } from "react";
-// import { ModelConfig, PerformanceMetric } from "@/entities/all"; // Data fetching logic commented out
+// import { ModelConfig, PerformanceMetric } from "@/entities/all"; // Commented out
 import type { ModelConfig, PerformanceMetric } from "@/types/entities"; // Using existing types
 import { 
   BarChart3, 
   Atom, 
   CircuitBoard, 
   TrendingUp, 
-  Zap
-} from "lucide-react";
+  Zap,
+  Brain // Added Brain
+} from "lucide-react"; // Removed Gauge, ArrowUp, ArrowRight as they are not used in this specific file
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-import ModelSummary from "@/components/dashboard/ModelSummary"; // Corrected import path
-import LatestPerformance from "@/components/dashboard/LatestPerformance"; // Corrected import path
+import ModelSummary from "@/components/dashboard/ModelSummary";
+import LatestPerformance from "@/components/dashboard/LatestPerformance";
 
 export default function Dashboard() {
   const [configs, setConfigs] = useState<ModelConfig[]>([]);
@@ -28,9 +27,10 @@ export default function Dashboard() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // const modelConfigsData = await ModelConfig.list(); // Your entity/data fetching logic
-        // const performanceMetricsData = await PerformanceMetric.list(); // Your entity/data fetching logic
+        // const modelConfigsData = await ModelConfig.list(); // Your entity/data fetching logic - COMMENTED OUT
+        // const performanceMetricsData = await PerformanceMetric.list(); // Your entity/data fetching logic - COMMENTED OUT
         
+        // Using empty arrays as placeholders since actual fetching is commented out
         const modelConfigsData: ModelConfig[] = []; 
         const performanceMetricsData: PerformanceMetric[] = [];
 
@@ -58,18 +58,18 @@ export default function Dashboard() {
         quantumEffect: 1.8
       };
     }
-
+    
     if (configs.length > 0) {
-      const sortedConfigs = [...configs].sort((a, b) => (b.accuracy || 0) - (a.accuracy || 0));
-      const bestConfig = sortedConfigs[0];
-      return {
-        accuracy: bestConfig?.accuracy || 98.7,
-        layers: 6, 
-        parameters: "3.2M", 
-        bestConfig: bestConfig?.name || "ZPE-Q3",
-        improvement: 2.4, 
-        quantumEffect: 1.8 
-      };
+        const sortedConfigs = [...configs].sort((a, b) => (b.accuracy || 0) - (a.accuracy || 0));
+        const bestConfig = sortedConfigs[0];
+        return {
+            accuracy: bestConfig?.accuracy || 98.7,
+            layers: bestConfig?.channel_sizes?.length || 6, // Example: get layers from channel_sizes
+            parameters: "3.2M", // This would ideally come from model analysis
+            bestConfig: bestConfig?.name || "ZPE-Q3",
+            improvement: 2.4, // Example, would calculate based on history
+            quantumEffect: 1.8 // Example, would calculate if quantum model
+        };
     }
     
     return { 
