@@ -1,17 +1,18 @@
 
 "use client";
-import React, { useState, useEffect } from "react";
-// import { QuantumNoiseSample } from "@/entities/all"; // Commented out
-import type { QuantumNoiseSample } from "@/types/entities";
+import React, { useState, useEffect, useCallback } from "react";
+// import { QuantumNoiseSample } from "@/entities/all"; // Data fetching commented out
+import type { QuantumNoiseSample } from "@/types/entities"; // Using existing types
 import {
   Atom,
-  Braces, // Added Braces
+  Braces,
   FileDown,
   RefreshCw,
   Boxes,
   Dices,
   Activity, 
-  Maximize
+  Maximize,
+  Loader2 // Added Loader2
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-// import { InvokeLLM } from "@/integrations/Core"; // Commented out
+// import { InvokeLLM } from "@/integrations/Core"; // AI Invocation commented out
 import type { InvokeLLMResponse } from "@/types/entities"; // Using existing types
 import { InvokeLLM } from "@/types/entities"; // Using placeholder from types
 
@@ -89,12 +90,13 @@ export default function QuantumNoisePage() {
       } catch (error) {
         console.error("Error fetching data:", error);
         setSampleValues(generateQuantumNoiseDemo(parameters.numQubits));
-        fetchQuantumExplanation(); 
+        // fetchQuantumExplanation(); // Already called in try, consider if needed in catch too
       }
       setIsLoading(false);
     };
 
     fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parameters.numQubits, generateQuantumNoiseDemo, fetchQuantumExplanation]);
 
 
