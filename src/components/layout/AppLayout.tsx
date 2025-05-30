@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   PanelLeft, Home, Cpu, Zap, Atom, BarChart3, Settings, PlayCircle, Lightbulb, 
   Replace, Cog, Scaling, Box, Share2, Wrench, Moon, Sun, BrainCircuit, Globe, 
-  ScatterChart, IterationCw, Database, MessageSquare, Signal, SlidersHorizontal
+  ScatterChart, IterationCw, Database, MessageSquare, Signal, SlidersHorizontal, Monitor, TrendingUp // Added Monitor and TrendingUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -14,16 +14,16 @@ import { cn } from "@/lib/utils";
 const mainNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/train", label: "Train Model", icon: PlayCircle },
-  { href: "/model-configs", label: "Model Configs", icon: Settings }, // Was "Configurations", now "Model Configs"
-  { href: "/configurations", label: "Job History", icon: BarChart3 }, // Was "Performance", now "Job History" (Performance page is separate)
+  { href: "/model-configs", label: "Model Configs", icon: Settings },
+  { href: "/configurations", label: "Job History", icon: BarChart3 }, 
   { href: "/performance", label: "Performance Analysis", icon: TrendingUp },
   { href: "/architecture", label: "Architecture", icon: Cpu },
   { href: "/gpu-monitor", label: "GPU Monitor", icon: Monitor },
 ];
 
-const toolsNavItems = [
-  { href: "/zpe-flow-analysis", label: "ZPE Flow Analysis", icon: SlidersHorizontal }, // New: ZpeFlow.js
-  { href: "/hnn-advisor", label: "HNN Advisor", icon: BrainCircuit }, // Was /zpe-flow
+const advancedToolsNavItems = [
+  { href: "/zpe-flow-analysis", label: "ZPE Flow Analysis", icon: SlidersHorizontal },
+  { href: "/hnn-advisor", label: "HNN Advisor", icon: BrainCircuit }, 
   { href: "/quantum-noise", label: "Quantum Noise", icon: Atom },
   { href: "/rf-generator", label: "RF Generator", icon: Signal },
   { href: "/ai-analysis", label: "AI Analysis", icon: MessageSquare },
@@ -31,7 +31,7 @@ const toolsNavItems = [
 
 const visNavItems = [
   { href: "/vis/bloch-sphere", label: "Bloch Sphere", icon: Globe },
-  { href: "/vis/dynamic-formation", label: "Dynamic Formation", icon: IterationCw }, // New
+  { href: "/vis/dynamic-formation", label: "Dynamic Formation", icon: IterationCw }, 
   { href: "/vis/zpe-particle-simulation", label: "ZPE Particle Sim", icon: ScatterChart },
 ];
 
@@ -49,7 +49,7 @@ const aiFlowsNavItems = [
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(true); // Default to dark
+  const [isDarkMode, setIsDarkMode] = useState(true); 
 
   useEffect(() => {
     if (isDarkMode) {
@@ -68,7 +68,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </>
   );
 
-  const renderNavSection = (title: string, items: Array<any>) => (
+  const renderNavSection = (title: string, items: Array<{ href: string; label: string; icon: React.ElementType }>) => (
     <>
       <div className="pt-3 pb-1 px-2">
         <span className="text-xs font-semibold uppercase text-muted-foreground">{title}</span>
@@ -76,7 +76,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {items.map((item) => (
         <Link
           key={item.href}
-          href={item.href || "#"}
+          href={item.href}
           className={cn(
             "flex items-center px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
             (pathname === item.href || (item.href && pathname.startsWith(item.href + '/') && item.href !== "/"))
@@ -85,7 +85,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           )}
           onClick={() => setIsMobileNavOpen(false)}
         >
-          <NavLinkContent item={item as { label: string, icon: React.ElementType }} />
+          <NavLinkContent item={item} />
         </Link>
       ))}
     </>
@@ -94,14 +94,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-4 border-b border-border">
-        <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold text-primary">
+        <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold text-primary" onClick={() => setIsMobileNavOpen(false)}>
           <Atom className="h-6 w-6" />
           <span>TetraZPE.com</span>
         </Link>
       </div>
       <nav className="flex-1 px-2 py-4 space-y-0 overflow-y-auto">
         {renderNavSection("Main", mainNavItems)}
-        {renderNavSection("Advanced Tools", toolsNavItems)}
+        {renderNavSection("Advanced Tools", advancedToolsNavItems)}
         {renderNavSection("Visualizations", visNavItems)}
         {renderNavSection("AI Flows", aiFlowsNavItems)}
       </nav>
@@ -116,7 +116,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen w-full bg-background">
-      <aside className="hidden md:flex md:flex-col md:w-72 border-r border-border bg-card"> {/* Increased width */}
+      <aside className="hidden md:flex md:flex-col md:w-72 border-r border-border bg-card">
         <SidebarContent />
       </aside>
       <div className="flex flex-col flex-1 w-full">
@@ -128,11 +128,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <span className="sr-only">Toggle navigation menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="flex flex-col p-0 w-72"> {/* Increased width */}
+            <SheetContent side="left" className="flex flex-col p-0 w-72">
               <SidebarContent />
             </SheetContent>
           </Sheet>
-          <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold text-primary md:hidden">
+          <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold text-primary md:hidden" onClick={() => setIsMobileNavOpen(false)}>
             <Atom className="h-6 w-6" />
             <span className="sr-only">TetraZPE.com</span>
           </Link>
