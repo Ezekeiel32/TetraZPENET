@@ -15,10 +15,12 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
@@ -260,7 +262,9 @@ function AIAnalysisPageComponent() {
             quantumCircuitSize: selectedPreviousJobDetails.parameters.quantumCircuitSize || 0,
             labelSmoothing: selectedPreviousJobDetails.parameters.labelSmoothing || 0,
             quantumMode: selectedPreviousJobDetails.parameters.quantumMode || false,
-            modelName: selectedPreviousJobDetails.parameters.modelName || "DefaultModel",
+ modelName: selectedPreviousJobDetails.parameters.modelName || "DefaultModel",
+        // Conditionally add baseConfigId, ensuring it's undefined if null or not present
+        ...(selectedPreviousJobDetails.parameters.baseConfigId !== null && selectedPreviousJobDetails.parameters.baseConfigId !== undefined && { baseConfigId: selectedPreviousJobDetails.parameters.baseConfigId }),
         };
         validatedPreviousParams = TrainingParametersSchema.parse(paramsToValidate);
     } catch (validationError: any) {
@@ -288,25 +292,63 @@ function AIAnalysisPageComponent() {
     }
   };
 
-  const handleLoadSuggestionInTrainer = (suggestionParams: Partial<TrainingParameters> | undefined) => {
+  const handleLoadSuggestionInTrainer = async (suggestionParams: Partial<TrainingParameters> | undefined) => {
     if (!suggestionParams) { toast({ title: "Error", description: "No parameters provided for suggestion.", variant: "destructive" }); return; }
     const baseParams = selectedPreviousJobDetails ? { ...selectedPreviousJobDetails.parameters } : {};
-    const combinedParams: Partial<TrainingParameters> = { ...baseParams };
+    const combinedParams: Partial<TrainingParameters> = { ...baseParams, ...suggestionParams }; // Merge base and suggested parameters
 
-    for (const key in suggestionParams) {
-      if (Object.prototype.hasOwnProperty.call(suggestionParams, key)) {
-        (combinedParams as any)[key] = (suggestionParams as any)[key];
+    // Ensure all required TrainingParameters fields are present, providing defaults if necessary
+    const parameters: TrainingParameters = {
+        totalEpochs: combinedParams.totalEpochs || 100, // Provide a default if missing
+        batchSize: combinedParams.batchSize || 32,     // Provide a default if missing
+        learningRate: combinedParams.learningRate || 0.001, // Provide a default if missing
+        weightDecay: combinedParams.weightDecay || 0.0,    // Provide a default if missing
+        momentumParams: combinedParams.momentumParams || Array(6).fill(0.8), // Provide a default if missing
+        strengthParams: combinedParams.strengthParams || Array(6).fill(0.4), // Provide a default if missing
+        noiseParams: combinedParams.noiseParams || Array(6).fill(0.2),      // Provide a default if missing
+        quantumCircuitSize: combinedParams.quantumCircuitSize || 32, // Provide a default if missing
+        labelSmoothing: combinedParams.labelSmoothing || 0.0,    // Provide a default if missing
+        quantumMode: combinedParams.quantumMode || false,      // Provide a default if missing
+        modelName: suggestionParams.modelName || baseParams.modelName || `HNN_Advised_Model_${Date.now().toString().slice(-4)}`, // Ensure a modelName is set
+        baseConfigId: combinedParams.baseConfigId,
+    };
+
+    // Save the combined parameters as a new model configuration
+    try {
+      const newConfig: ModelConfig = { // Use ModelConfig directly, not Partial
+        // Generate a new ID on the frontend for consistency, though backend also assigns one
+        id: `config_${Date.now().toString()}_${Math.random().toString(36).substr(2, 4)}`,
+        name: parameters.modelName,
+        parameters: parameters, // Use the validated and defaulted parameters
+        date_created: new Date().toISOString(), // Corrected field name
+        accuracy: 0,
+        loss: 0, // Initial loss is 0 until trained
+        use_quantum_noise: combinedParams.quantumMode || false,
+        // Add other relevant fields if they exist in your ModelConfig type
+      };
+      
+      const response = await fetch(`${API_BASE_URL}/configs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newConfig),
+      });
+
+      if (!response.ok) {
+        // Attempt to parse and display backend validation errors if available
+        const errorData = await response.json();
+        const errorMessage = errorData.detail ? JSON.stringify(errorData.detail) : `Failed to save new configuration. Status: ${response.status}`;
+        throw new Error(errorMessage);
       }
+      const savedConfig = await response.json(); // Get the saved config with the backend-assigned ID
+      toast({ title: "Configuration Saved", description: `Suggested parameters saved as configuration "${savedConfig.config_id || newConfig.name}".` });
+    } catch (error: any) {
+      console.error("Error saving configuration:", error);
+      toast({ title: "Error Saving Configuration", description: `Could not save suggested configuration: ${String(error.message)}`, variant: "destructive" });
+      // If saving failed, do not proceed to the trainer page with potentially invalid parameters
+      return;
     }
-    if (suggestionParams.modelName) {
-        combinedParams.modelName = suggestionParams.modelName;
-    } else if (baseParams.modelName) {
-        combinedParams.modelName = `${baseParams.modelName}_hnn_advised`;
-    } else {
-        combinedParams.modelName = `HNN_Advised_Model_${Date.now().toString().slice(-4)}`;
-    }
-    combinedParams.baseConfigId = selectedPreviousJobDetails?.job_id;
-
     const query = new URLSearchParams();
     for (const [key, value] of Object.entries(combinedParams)) {
       if (value !== undefined && value !== null) {
@@ -525,7 +567,7 @@ function AIAnalysisPageComponent() {
                         <CardContent>
                           <p className="text-sm text-muted-foreground mb-3 whitespace-pre-wrap">{suggestion.description}</p>
                           {suggestion.expected_impact && (<div className="flex items-center gap-2 text-sm mb-3"><Zap className="h-4 w-4 text-green-500" /><span className="font-medium">Expected Impact:</span><span>{suggestion.expected_impact}</span></div>)}
-                          {suggestion.suggested_parameters && (<Button size="sm" variant="outline" onClick={() => handleLoadSuggestionInTrainer(suggestion.suggested_parameters)} className="w-full"><Play className="h-4 w-4 mr-2" />Load these Parameters in Trainer</Button>)}
+                          {suggestion.suggested_parameters && (<Button size="sm" variant="outline" onClick={() => handleLoadSuggestionInTrainer(suggestion.suggested_parameters)} className="w-full"><Play className="h-4 w-4 mr-2"/>Load these Parameters in Trainer</Button>)}
                         </CardContent>
                       </Card>
                     ))}

@@ -155,6 +155,26 @@ export default function HSQNNParameterAdvisorPage() {
             labelSmoothing: selectedJobDetails.parameters.labelSmoothing || 0,
             quantumMode: selectedJobDetails.parameters.quantumMode || false,
             modelName: selectedJobDetails.parameters.modelName || "DefaultModel",
+            // Conditionally add baseConfigId, ensuring it's undefined if null or not present
+            // Zod's .optional() expects the field to be absent or undefined for null/missing values
+            ...(selectedJobDetails.parameters.baseConfigId !== null && selectedJobDetails.parameters.baseConfigId !== undefined
+                ? { baseConfigId: selectedJobDetails.parameters.baseConfigId }
+                : {}),
+        };
+
+        // Re-construct paramsToValidate to ensure order and clean structure
+        const structuredParamsToValidate = {
+            totalEpochs: paramsToValidate.totalEpochs,
+            batchSize: paramsToValidate.batchSize,
+            learningRate: paramsToValidate.learningRate,
+            weightDecay: paramsToValidate.weightDecay,
+            momentumParams: paramsToValidate.momentumParams,
+            strengthParams: paramsToValidate.strengthParams,
+            noiseParams: paramsToValidate.noiseParams,
+            quantumCircuitSize: paramsToValidate.quantumCircuitSize,
+            labelSmoothing: paramsToValidate.labelSmoothing,
+            quantumMode: paramsToValidate.quantumMode,
+            modelName: paramsToValidate.modelName,
         };
         validatedPreviousParams = TrainingParametersSchema.parse(paramsToValidate);
     } catch (validationError: any) {
@@ -165,7 +185,7 @@ export default function HSQNNParameterAdvisorPage() {
         return;
     }
     
-    const inputForAI: HSQNNAdvisorInput = {
+    const inputForAI: HSQNNAdvisorInput = { // This input type likely expects the TrainingParameters to be fully defined, not partial
       previousJobId: selectedJobDetails.job_id,
       previousZpeEffects: selectedJobDetails.zpe_effects,
       previousTrainingParameters: validatedPreviousParams, 
