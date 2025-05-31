@@ -100,8 +100,8 @@ function AIAnalysisPageComponent() {
         setSelectedJobIdForAdvice(jobs[0].job_id);
       }
     } catch (e: any) {
-      setSpecificAdviceError("Failed to fetch jobs: " + e.message);
-      toast({ title: "Error fetching jobs", description: e.message, variant: "destructive" });
+      setSpecificAdviceError("Failed to fetch jobs: " + String(e.message));
+      toast({ title: "Error fetching jobs", description: String(e.message), variant: "destructive" });
     } finally {
       setIsLoadingSpecificAdvice(false);
     }
@@ -124,8 +124,8 @@ function AIAnalysisPageComponent() {
           setSelectedPreviousJobDetails(data);
         } catch (e: any) {
           setSelectedPreviousJobDetails(null);
-          setSpecificAdviceError("Failed to fetch selected job details: " + e.message);
-          toast({ title: "Error fetching job details", description: e.message, variant: "destructive" });
+          setSpecificAdviceError("Failed to fetch selected job details: " + String(e.message));
+          toast({ title: "Error fetching job details", description: String(e.message), variant: "destructive" });
         } finally {
           setIsLoadingSpecificAdvice(false);
         }
@@ -181,7 +181,7 @@ function AIAnalysisPageComponent() {
       }
     } catch (error: any) {
       console.error("Error generating initial analysis:", error);
-      toast({ title: "Error", description: "Could not generate initial analysis: " + error.message, variant: "destructive" });
+      toast({ title: "Error", description: "Could not generate initial analysis: " + String(error.message), variant: "destructive" });
       setAiInsights({
         performance_assessment: "Could not generate analysis due to an error.",
         quantum_insights: "Please check console for details.",
@@ -217,8 +217,8 @@ function AIAnalysisPageComponent() {
       const aiMessage: ChatMessage = {
         id: Date.now() + 1, type: "ai",
         content: result.response || "I'm having trouble. Could you rephrase?",
-        suggestions: [],
-        followUp: [],
+        // suggestions: result.suggestions || [], // Assuming flow provides these
+        // followUp: result.followUpQuestions || [], // Assuming flow provides these
         timestamp: new Date()
       };
       setChatMessages(prev => [...prev, aiMessage]);
@@ -226,11 +226,11 @@ function AIAnalysisPageComponent() {
       console.error("Error getting AI response:", error);
       const aiErrorMessage: ChatMessage = {
         id: Date.now() + 1, type: "ai",
-        content: "Sorry, I encountered an error trying to respond: " + error.message,
+        content: "Sorry, I encountered an error trying to respond: " + String(error.message),
         timestamp: new Date()
       };
       setChatMessages(prev => [...prev, aiErrorMessage]);
-      toast({ title: "Error", description: "Could not get AI response: " + error.message, variant: "destructive" });
+      toast({ title: "Error", description: "Could not get AI response: " + String(error.message), variant: "destructive" });
     }
     setIsAnalyzing(false);
   };
@@ -266,8 +266,8 @@ function AIAnalysisPageComponent() {
         validatedPreviousParams = TrainingParametersSchema.parse(paramsToValidate);
     } catch (validationError: any) {
         console.error("Validation error for previousTrainingParameters:", validationError);
-        setSpecificAdviceError("Previous job parameters are not in the expected format. Check console. Error: " + validationError.message);
-        toast({ title: "Parameter Mismatch", description: "Previous job parameters invalid. " + validationError.message, variant: "destructive" });
+        setSpecificAdviceError("Previous job parameters are not in the expected format. Check console. Error: " + String(validationError.message));
+        toast({ title: "Parameter Mismatch", description: "Previous job parameters invalid. " + String(validationError.message), variant: "destructive" });
         setIsLoadingSpecificAdvice(false);
         return;
     }
@@ -282,8 +282,8 @@ function AIAnalysisPageComponent() {
       setSpecificAdviceResult(output);
       toast({ title: "Specific Advice Generated", description: "AI has provided suggestions for the selected job." });
     } catch (e: any) {
-      setSpecificAdviceError("AI advice generation failed: " + e.message);
-      toast({ title: "Specific Advice Failed", description: e.message, variant: "destructive" });
+      setSpecificAdviceError("AI advice generation failed: " + String(e.message));
+      toast({ title: "Specific Advice Failed", description: String(e.message), variant: "destructive" });
     } finally {
       setIsLoadingSpecificAdvice(false);
     }
@@ -322,6 +322,13 @@ function AIAnalysisPageComponent() {
   };
 
   const handleQuickQuestion = (question: string) => { setCurrentMessage(question); };
+  const quickQuestions = [
+    "How can I improve my model's accuracy?",
+    "What's the optimal ZPE momentum configuration?",
+    "How does quantum noise affect convergence?",
+    "Analyze my best performing configuration",
+    "Suggest parameters for a new experiment"
+  ];
 
   const ParamList = ({ params, title }: { params: Partial<TrainingParameters> | undefined, title: string }) => {
     if (!params || Object.keys(params).length === 0) {
@@ -450,8 +457,12 @@ function AIAnalysisPageComponent() {
                 </div>
                 {selectedPreviousJobDetails && (
                     <Card className="bg-muted/30 p-3 text-xs">
-                        <p><strong>Selected:</strong> {selectedPreviousJobDetails.parameters.modelName}</p>
-                        <p><strong>ZPE Effects:</strong> [{selectedPreviousJobDetails.zpe_effects.map(z => z.toFixed(3)).join(', ')}]</p>
+                        <CardHeader className="p-0 pb-2"><CardTitle className="text-sm">Selected Job Context</CardTitle></CardHeader>
+                        <CardContent className="p-0 space-y-0.5">
+                            <p><strong>Model:</strong> {selectedPreviousJobDetails.parameters.modelName}</p>
+                            <p><strong>Accuracy:</strong> {selectedPreviousJobDetails.accuracy.toFixed(2)}% | <strong>Loss:</strong> {selectedPreviousJobDetails.loss.toFixed(4)}</p>
+                            <p><strong>ZPE Effects (avg):</strong> [{selectedPreviousJobDetails.zpe_effects.map(z => z.toFixed(3)).join(', ')}]</p>
+                        </CardContent>
                     </Card>
                 )}
                 <div>
@@ -533,5 +544,7 @@ export default function AIAnalysisPage() {
     </Suspense>
   );
 }
+
+    
 
     
