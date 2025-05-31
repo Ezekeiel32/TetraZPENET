@@ -29,7 +29,7 @@ const TrainingParametersSchemaInternal = z.object({
   labelSmoothing: z.number().min(0).max(0.5),
   quantumMode: z.boolean(),
   modelName: z.string().min(3),
-  baseConfigId: z.string().optional(),
+  baseConfigId: z.string().nullable().optional(), // Allow null
 });
 
 const HSQNNAdvisorInputSchema = z.object({
@@ -119,3 +119,4 @@ const hsQnnParameterAdvisorFlow = ai.defineFlow(
     return output;
   }
 );
+

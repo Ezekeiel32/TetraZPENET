@@ -42,7 +42,7 @@ const TrainingParametersSchema = z.object({
   labelSmoothing: z.number().min(0).max(0.5),
   quantumMode: z.boolean(),
   modelName: z.string().min(3, "Model name must be at least 3 characters"),
-  baseConfigId: z.string().optional(),
+  baseConfigId: z.string().nullable().optional(), // Allow null
 });
 
 
@@ -216,7 +216,7 @@ function AIAnalysisPageComponent() {
     setIsAnalyzing(true);
     try {
       const inputForAI: GetZpeChatResponseInput = { userPrompt: tempCurrentMessage };
-      const result = await getZpeChatResponseFlow(inputForAI); // Using the simplified flow
+      const result = await getZpeChatResponseFlow(inputForAI); 
       const aiMessage: ChatMessage = {
         id: Date.now() + 1, type: "ai",
         content: result.response || "I'm having trouble. Could you rephrase?",
@@ -248,10 +248,12 @@ function AIAnalysisPageComponent() {
     setIsLoadingSpecificAdvice(true);
     setSpecificAdviceError(null);
     setSpecificAdviceResult(null);
+    
     let validatedPreviousParams: TrainingParameters;
     try {
+        // Directly use selectedPreviousJobDetails.parameters if they are expected to be complete.
+        // Add default fallbacks for any potentially missing fields to satisfy the schema.
         const paramsToValidate = {
-            ...selectedPreviousJobDetails.parameters,
             totalEpochs: selectedPreviousJobDetails.parameters.totalEpochs || 0,
             batchSize: selectedPreviousJobDetails.parameters.batchSize || 0,
             learningRate: selectedPreviousJobDetails.parameters.learningRate || 0,
@@ -262,24 +264,27 @@ function AIAnalysisPageComponent() {
             quantumCircuitSize: selectedPreviousJobDetails.parameters.quantumCircuitSize || 0,
             labelSmoothing: selectedPreviousJobDetails.parameters.labelSmoothing || 0,
             quantumMode: selectedPreviousJobDetails.parameters.quantumMode || false,
- modelName: selectedPreviousJobDetails.parameters.modelName || "DefaultModel",
-        // Conditionally add baseConfigId, ensuring it's undefined if null or not present
-        ...(selectedPreviousJobDetails.parameters.baseConfigId !== null && selectedPreviousJobDetails.parameters.baseConfigId !== undefined && { baseConfigId: selectedPreviousJobDetails.parameters.baseConfigId }),
+            modelName: selectedPreviousJobDetails.parameters.modelName || "DefaultModel",
+            baseConfigId: selectedPreviousJobDetails.parameters.baseConfigId === null ? undefined : selectedPreviousJobDetails.parameters.baseConfigId,
         };
         validatedPreviousParams = TrainingParametersSchema.parse(paramsToValidate);
+
     } catch (validationError: any) {
         console.error("Validation error for previousTrainingParameters:", validationError);
-        setSpecificAdviceError("Previous job parameters are not in the expected format. Check console. Error: " + String(validationError.message));
-        toast({ title: "Parameter Mismatch", description: "Previous job parameters invalid. " + String(validationError.message), variant: "destructive" });
+        const errorDetails = validationError.errors?.map((err: any) => `${err.path.join('.')}: ${err.message}`).join('; ') || validationError.message;
+        setSpecificAdviceError("Previous job parameters are not in the expected format. " + errorDetails);
+        toast({ title: "Parameter Mismatch", description: "Previous job parameters invalid. " + errorDetails, variant: "destructive" });
         setIsLoadingSpecificAdvice(false);
         return;
     }
+
     const inputForAI: HSQNNAdvisorInput = {
       previousJobId: selectedPreviousJobDetails.job_id,
-      previousZpeEffects: selectedPreviousJobDetails.zpe_effects || Array(6).fill(0), // Fallback for zpe_effects
+      previousZpeEffects: selectedPreviousJobDetails.zpe_effects || Array(6).fill(0), 
       previousTrainingParameters: validatedPreviousParams,
       hnnObjective: adviceObjective,
     };
+
     try {
       const output = await adviseHSQNNParameters(inputForAI);
       setSpecificAdviceResult(output);
@@ -294,68 +299,32 @@ function AIAnalysisPageComponent() {
 
   const handleLoadSuggestionInTrainer = async (suggestionParams: Partial<TrainingParameters> | undefined) => {
     if (!suggestionParams) { toast({ title: "Error", description: "No parameters provided for suggestion.", variant: "destructive" }); return; }
-    const baseParams = selectedPreviousJobDetails ? { ...selectedPreviousJobDetails.parameters } : {};
-    const combinedParams: Partial<TrainingParameters> = { ...baseParams, ...suggestionParams }; // Merge base and suggested parameters
-
-    // Ensure all required TrainingParameters fields are present, providing defaults if necessary
-    const parameters: TrainingParameters = {
-        totalEpochs: combinedParams.totalEpochs || 100, // Provide a default if missing
-        batchSize: combinedParams.batchSize || 32,     // Provide a default if missing
-        learningRate: combinedParams.learningRate || 0.001, // Provide a default if missing
-        weightDecay: combinedParams.weightDecay || 0.0,    // Provide a default if missing
-        momentumParams: combinedParams.momentumParams || Array(6).fill(0.8), // Provide a default if missing
-        strengthParams: combinedParams.strengthParams || Array(6).fill(0.4), // Provide a default if missing
-        noiseParams: combinedParams.noiseParams || Array(6).fill(0.2),      // Provide a default if missing
-        quantumCircuitSize: combinedParams.quantumCircuitSize || 32, // Provide a default if missing
-        labelSmoothing: combinedParams.labelSmoothing || 0.0,    // Provide a default if missing
-        quantumMode: combinedParams.quantumMode || false,      // Provide a default if missing
-        modelName: suggestionParams.modelName || baseParams.modelName || `HNN_Advised_Model_${Date.now().toString().slice(-4)}`, // Ensure a modelName is set
-        baseConfigId: combinedParams.baseConfigId,
-    };
-
-    // Save the combined parameters as a new model configuration
-    try {
-      const newConfig: ModelConfig = { // Use ModelConfig directly, not Partial
-        // Generate a new ID on the frontend for consistency, though backend also assigns one
-        id: `config_${Date.now().toString()}_${Math.random().toString(36).substr(2, 4)}`,
-        name: parameters.modelName,
-        parameters: parameters, // Use the validated and defaulted parameters
-        date_created: new Date().toISOString(), // Corrected field name
-        accuracy: 0,
-        loss: 0, // Initial loss is 0 until trained
-        use_quantum_noise: combinedParams.quantumMode || false,
-        // Add other relevant fields if they exist in your ModelConfig type
-      };
-      
-      const response = await fetch(`${API_BASE_URL}/configs`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newConfig),
-      });
-
-      if (!response.ok) {
-        // Attempt to parse and display backend validation errors if available
-        const errorData = await response.json();
-        const errorMessage = errorData.detail ? JSON.stringify(errorData.detail) : `Failed to save new configuration. Status: ${response.status}`;
-        throw new Error(errorMessage);
-      }
-      const savedConfig = await response.json(); // Get the saved config with the backend-assigned ID
-      toast({ title: "Configuration Saved", description: `Suggested parameters saved as configuration "${savedConfig.config_id || newConfig.name}".` });
-    } catch (error: any) {
-      console.error("Error saving configuration:", error);
-      toast({ title: "Error Saving Configuration", description: `Could not save suggested configuration: ${String(error.message)}`, variant: "destructive" });
-      // If saving failed, do not proceed to the trainer page with potentially invalid parameters
-      return;
+    
+    const baseParamsForRouter = selectedPreviousJobDetails ? { ...selectedPreviousJobDetails.parameters } : {};
+    
+    const combinedParamsForRouter: Record<string, any> = { ...baseParamsForRouter, ...suggestionParams }; 
+    
+    // Explicitly set modelName if AI suggested one, otherwise derive or default
+    if (suggestionParams.modelName) {
+      combinedParamsForRouter.modelName = suggestionParams.modelName;
+    } else if (baseParamsForRouter.modelName) {
+      combinedParamsForRouter.modelName = `${baseParamsForRouter.modelName}_hnn_advised`;
+    } else {
+      combinedParamsForRouter.modelName = `HNN_Advised_Model_${Date.now().toString().slice(-4)}`;
     }
+
+    if(selectedPreviousJobDetails?.job_id) {
+        combinedParamsForRouter.baseConfigId = selectedPreviousJobDetails.job_id;
+    }
+
+
     const query = new URLSearchParams();
-    for (const [key, value] of Object.entries(combinedParams)) {
+    for (const [key, value] of Object.entries(combinedParamsForRouter)) {
       if (value !== undefined && value !== null) {
         if (Array.isArray(value)) {
-          query.append(String(key), JSON.stringify(value));
+          query.set(String(key), JSON.stringify(value));
         } else {
-          query.append(String(key), String(value));
+          query.set(String(key), String(value));
         }
       }
     }
@@ -373,7 +342,11 @@ function AIAnalysisPageComponent() {
 
   const ParamList = ({ params, title }: { params: Partial<TrainingParameters> | undefined, title: string }) => {
     if (!params || Object.keys(params).length === 0) {
-      return <p className="text-sm text-muted-foreground italic">{title}: No parameters to display.</p>;
+      let message = `${title}: No parameters to display or not applicable.`;
+       if (title === "Suggested Changes" && selectedPreviousJobDetails && (!params || Object.keys(params).length === 0)) {
+        message = `${title}: AI suggests inheriting most parameters. Model Name will be updated. BaseConfigID will link to previous job.`;
+      }
+      return <p className="text-sm text-muted-foreground italic">{message}</p>;
     }
     const entries = Object.entries(params);
     return (
@@ -499,11 +472,11 @@ function AIAnalysisPageComponent() {
                         <CardHeader className="p-0 pb-2"><CardTitle className="text-sm">Selected Job Context</CardTitle></CardHeader>
                         <CardContent className="p-0 space-y-0.5">
                             <p><strong>Model:</strong> {selectedPreviousJobDetails.parameters?.modelName || 'N/A'}</p>
-                            <p><strong>Accuracy:</strong> {selectedPreviousJobDetails.accuracy?.toFixed(2) || 'N/A'}% | <strong>Loss:</strong> {selectedPreviousJobDetails.loss?.toFixed(4) || 'N/A'}</p>
+                            <p><strong>Accuracy:</strong> {(selectedPreviousJobDetails.accuracy ?? 0).toFixed(2)}% | <strong>Loss:</strong> {(selectedPreviousJobDetails.loss ?? 0).toFixed(4)}</p>
                             <p>
                                 <strong>ZPE Effects (avg):</strong> 
                                 {Array.isArray(selectedPreviousJobDetails.zpe_effects) && selectedPreviousJobDetails.zpe_effects.length > 0 
-                                    ? `[${selectedPreviousJobDetails.zpe_effects.map(z => z?.toFixed(3) || 'N/A').join(', ')}]`
+                                    ? `[${selectedPreviousJobDetails.zpe_effects.map(z => (z ?? 0).toFixed(3)).join(', ')}]`
                                     : 'N/A'
                                 }
                             </p>
@@ -589,3 +562,4 @@ export default function AIAnalysisPage() {
     </Suspense>
   );
 }
+
