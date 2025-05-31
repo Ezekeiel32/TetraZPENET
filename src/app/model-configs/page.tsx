@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
 // import { ModelConfig } from "@/entities/all"; // Commented out
@@ -22,6 +23,8 @@ import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { toast } from "@/hooks/use-toast"; // For user feedback
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
 
 // Define a type for the parameters that will be nested
 interface TrainingParameters {
@@ -303,8 +306,8 @@ export default function ModelConfigurationsPage() {
                       <TableRow><TableHead>Name</TableHead><TableHead>Accuracy</TableHead><TableHead>Date</TableHead><TableHead className="w-12"></TableHead></TableRow>
                     </TableHeader>
                     <TableBody>
-                      {isLoading && <TableRow><TableCell colSpan={4} className="text-center py-6">Loading...</TableCell></TableRow>}\
-                      {!isLoading && configs.length === 0 && <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground">No configurations found.</TableCell></TableRow>}\
+                      {isLoading && <TableRow><TableCell colSpan={4} className="text-center py-6">Loading...</TableCell></TableRow>}
+                      {!isLoading && configs.length === 0 && <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground">No configurations found.</TableCell></TableRow>}
                       {configs.map((config) => (
                         <TableRow key={config.id} className={`cursor-pointer hover:bg-muted/50 ${selectedConfig?.id === config.id ? 'bg-muted' : ''}`} onClick={() => handleConfigSelect(config)}>
                           <TableCell className="font-medium"><div className="flex items-center gap-2"><Settings className="h-4 w-4 text-muted-foreground" />{config.name}</div></TableCell>
@@ -480,7 +483,7 @@ export default function ModelConfigurationsPage() {
                         </div></div>
                       <div><h3 className="text-sm font-medium mb-4 text-muted-foreground">Relationships</h3><div className="aspect-square bg-muted/50 rounded-lg flex items-center justify-center p-4">
                           <svg width="100%" height="100%" viewBox="0 0 400 400">{/* SVG content from original code */}
-                            <circle cx="200" cy="200" r="150" fill="none" stroke="hsl(var(--border)))" strokeWidth="1" strokeDasharray="5,5" />
+                            <circle cx="200" cy="200" r="150" fill="none" stroke="hsl(var(--border))" strokeWidth="1" strokeDasharray="5,5" />
                             <circle cx="200" cy="200" r="100" fill="none" stroke="hsl(var(--border))" strokeWidth="1" strokeDasharray="5,5" />
                             <circle cx="200" cy="200" r="50" fill="none" stroke="hsl(var(--border))" strokeWidth="1" strokeDasharray="5,5" />
                             <line x1="50" y1="200" x2="350" y2="200" stroke="hsl(var(--border))" strokeWidth="1" /><line x1="200" y1="50" x2="200" y2="350" stroke="hsl(var(--border))" strokeWidth="1" />
@@ -499,4 +502,35 @@ export default function ModelConfigurationsPage() {
                               return (<g key={idx}><circle cx={x} cy={y} r={6} fill={idx === 3 && selectedConfig.parameters.quantumMode ? "hsl(var(--chart-2))" : "hsl(var(--chart-1))"} fillOpacity="0.7"/><text x={x} y={y - 8} fill="hsl(var(--foreground))" fontSize="10" textAnchor="middle">L{idx+1}</text></g>);
                             })}
                           </svg></div></div></div>
-                    <div className="mt-8
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <Card>
+                <CardHeader><CardTitle>No Configuration Selected</CardTitle></CardHeader>
+                <CardContent><p className="text-muted-foreground">Select a configuration from the list to view its details or create a new one.</p></CardContent>
+              </Card>
+            )}
+            {showDeletePrompt && selectedConfig && (
+                <Dialog open={showDeletePrompt} onOpenChange={setShowDeletePrompt}>
+                <DialogContent>
+                    <DialogHeader>
+                    <DialogTitle>Confirm Deletion</DialogTitle>
+                    <DialogDescription>
+                        Are you sure you want to delete configuration "{selectedConfig.name}"? This action cannot be undone.
+                    </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowDeletePrompt(false)}>Cancel</Button>
+                    <Button variant="destructive" onClick={confirmDeleteConfig}>Delete</Button>
+                    </DialogFooter>
+                </DialogContent>
+                </Dialog>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+

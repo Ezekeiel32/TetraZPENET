@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Zap, Thermometer, BarChartHorizontalBig, Cpu, AlertCircle, Power, Info } from 'lucide-react';
+import { Zap, Thermometer, BarChartHorizontalBig, Cpu, AlertCircle, Power, Info, Activity } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import type { GpuInfo } from '@/types/training'; // Assuming GpuInfo is defined here
 import { Button } from '@/components/ui/button';
@@ -168,6 +168,9 @@ export default function GpuMonitorPage() {
                 <div className="text-2xl font-bold">
                   {formatMemory(gpuData.memory_used_mb)} / {formatMemory(gpuData.memory_total_mb)}
                 </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Free: {formatMemory(gpuData.memory_free_mb)}
+                </div>
                 <Progress value={gpuData.memory_used_percent} className="mt-2 h-2" />
               </CardContent>
             </Card>
@@ -187,7 +190,7 @@ export default function GpuMonitorPage() {
               "Memory I/O Utilization",
               gpuData.utilization_memory_io_percent,
               "%",
-              Zap, // Re-using Zap, consider a different icon if available for I/O
+              Activity, 
               gpuData.utilization_memory_io_percent
             )}
           </div>
@@ -202,3 +205,4 @@ export default function GpuMonitorPage() {
     </div>
   );
 }
+
