@@ -1,6 +1,6 @@
 
 "use client";
-import React, { useState, useEffect, Suspense } from "react"; // Added Suspense
+import React, { useState, useEffect, Suspense } from "react"; 
 // import { ModelConfig, PerformanceMetric } from "@/entities/all"; // Commented out
 // import { InvokeLLM } from "@/integrations/Core"; // Commented out
 import type { ModelConfig, PerformanceMetric, InvokeLLMResponse } from "@/types/entities";
@@ -19,6 +19,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useRouter, useSearchParams, usePathname } from "next/navigation"; 
 import { toast } from "@/hooks/use-toast";
+import { z } from "zod"; // Genkit Zod import
+import { ai } from "@/ai/genkit"; // Genkit ai instance import
+
 
 interface ChatMessage {
   id: number;
@@ -38,15 +41,30 @@ interface OptimizationSuggestion {
   suggested_parameters?: Partial<any>; 
 }
 
-interface AiInsights {
-  performance_assessment: string;
-  quantum_insights: string;
-  optimization_recommendations: OptimizationSuggestion[];
-  attention_areas: string[];
-}
+// This interface is now defined within the GetInitialZpeAnalysisOutput type from the flow
+// interface AiInsights {
+//   performance_assessment: string;
+//   quantum_insights: string;
+//   optimization_recommendations: OptimizationSuggestion[];
+//   attention_areas: string[];
+// }
+
+// Helper to get the output schema for the AI generate call if not using a dedicated flow
+const GetInitialZpeAnalysisOutputSchema = z.object({
+  performance_assessment: z.string().describe("Overall assessment of the ZPE network's performance based on provided data."),
+  quantum_insights: z.string().describe("Insights specific to quantum effects, ZPE interactions, or quantum noise if applicable."),
+  optimization_recommendations: z.array(z.object({
+    title: z.string().describe("A concise title for the optimization suggestion."),
+    description: z.string().describe("A detailed description of the suggested optimization."),
+    priority: z.enum(["High", "Medium", "Low"]).describe("Priority level of the suggestion."),
+    expected_impact: z.string().describe("What is the expected impact if this suggestion is implemented."),
+    suggested_parameters: z.any().optional().describe("Specific parameter changes to try, if applicable. E.g., { learningRate: 0.0005, zpeStrength: [0.2, 0.2, 0.3, ...] }")
+  })).describe("Actionable recommendations to improve model performance or explore new configurations."),
+  attention_areas: z.array(z.string()).describe("Areas or specific metrics that require closer attention or might indicate issues.")
+});
 
 
-function AIAnalysisPageComponent() { // Renamed to avoid conflict with default export
+function AIAnalysisPageComponent() { 
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -73,17 +91,19 @@ function AIAnalysisPageComponent() { // Renamed to avoid conflict with default e
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const modelConfigsData: ModelConfig[] = []; 
-        const performanceMetricsData: PerformanceMetric[] = []; 
+        // Simulate fetching data or use placeholders if actual fetching isn't implemented here
+        const modelConfigsData: ModelConfig[] = []; // Placeholder, replace with actual data fetching if needed
+        const performanceMetricsData: PerformanceMetric[] = []; // Placeholder
 
         setConfigs(modelConfigsData);
         setMetrics(performanceMetricsData);
         
-        generateInitialAnalysis(modelConfigsData, performanceMetricsData);
+        // Call generateInitialAnalysis after setting initial empty data
+        await generateInitialAnalysis(modelConfigsData, performanceMetricsData);
         
       } catch (error) {
-        console.error("Error fetching data:", error);
-         setAiInsights({
+        console.error("Error fetching initial data:", error);
+         setAiInsights({ // Provide a default/error state for aiInsights
             performance_assessment: "Error fetching model data. Cannot perform analysis.",
             quantum_insights: "N/A",
             optimization_recommendations: [],
@@ -95,7 +115,7 @@ function AIAnalysisPageComponent() { // Renamed to avoid conflict with default e
 
     fetchData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // Empty dependency array ensures this runs once on mount
 
   const generateInitialAnalysis = async (currentConfigs: ModelConfig[], currentMetrics: PerformanceMetric[]) => {
     setIsGeneratingInsights(true);
@@ -108,16 +128,19 @@ function AIAnalysisPageComponent() { // Renamed to avoid conflict with default e
         recentMetricsCount: currentMetrics.slice(-10).length 
       };
       
+      // Using the imported getInitialZpeAnalysisFlow directly
       const result = await getInitialZpeAnalysisFlow(analysisData);
 
       if (result) {
         setAiInsights(result);
         setOptimizationSuggestions(result.optimization_recommendations || []);
+      } else {
+        throw new Error("AI analysis returned no result.");
       }
     } catch (error: any) {
       console.error("Error generating initial analysis:", error);
       toast({title: "Error", description: "Could not generate initial analysis: " + error.message, variant: "destructive"});
-      setAiInsights({
+      setAiInsights({ // Provide a default/error state for aiInsights
         performance_assessment: "Could not generate analysis due to an error.",
         quantum_insights: "Please check console for details.",
         optimization_recommendations: [],
@@ -154,13 +177,17 @@ function AIAnalysisPageComponent() { // Renamed to avoid conflict with default e
       const inputForAI: GetZpeChatResponseInput = {
           userPrompt: tempCurrentMessage,
           systemContext: contextSummary,
-          previousMessages: chatMessages.slice(-5).map(m => ({role: m.type, content: m.content})) // Send last 5 messages as history
+          previousMessages: chatMessages.slice(-5).map(m => ({role: m.type, content: m.content})) 
       };
-      const result: GetZpeChatResponseOutput = await getZpeChatResponseFlow(inputForAI);
+      
+      // Using the imported getZpeChatResponseFlow directly
+      const result = await getZpeChatResponseFlow(inputForAI);
+
       const aiMessage: ChatMessage = {
         id: Date.now() + 1, type: "ai",
         content: result.response || "I'm having trouble. Could you rephrase?",
-        suggestions: result.suggestions || [], followUp: result.followUpQuestions || [],
+        suggestions: result.suggestions || [], 
+        followUp: result.followUpQuestions || [], // Using the correct field name
         timestamp: new Date()
       };
       setChatMessages(prev => [...prev, aiMessage]);
@@ -180,7 +207,6 @@ function AIAnalysisPageComponent() { // Renamed to avoid conflict with default e
   const handleLoadSuggestionInTrainer = (suggestionParams: any) => {
     if (!suggestionParams) { toast({title: "Error", description: "No parameters provided for suggestion.", variant: "destructive"}); return; }
     
-    // Merge with sensible defaults if AI doesn't provide all params
     const paramsToPass: any = { 
         modelName: `AI-Optimized-${Date.now().toString().slice(-4)}`,
         totalEpochs: 40, learningRate: 0.001, batchSize: 128, quantumMode: true,
@@ -188,11 +214,10 @@ function AIAnalysisPageComponent() { // Renamed to avoid conflict with default e
         strengthParams: [0.35, 0.33, 0.31, 0.60, 0.27, 0.50],
         noiseParams: [0.25, 0.22, 0.20, 0.30, 0.18, 0.20],
         weightDecay: 0.0001, quantumCircuitSize: 32, labelSmoothing: 0.03,
-        ...suggestionParams // AI suggestions override defaults
+        ...suggestionParams 
     };
     
     const query = new URLSearchParams();
-    // Iterate over known TrainingParameter keys to avoid passing unknown fields
     const knownKeys: (keyof typeof paramsToPass)[] = [
       'modelName', 'totalEpochs', 'learningRate', 'batchSize', 'quantumMode',
       'momentumParams', 'strengthParams', 'noiseParams', 'weightDecay',
@@ -333,12 +358,13 @@ function AIAnalysisPageComponent() { // Renamed to avoid conflict with default e
   );
 }
 
-
 // This component will be wrapped by Suspense
 export default function AIAnalysisPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <span className="ml-2">Loading AI Analysis...</span></div>}>
+    <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <span className="ml-2">Loading AI Analysis Dashboard... (Suspense Active)</span></div>}>
       <AIAnalysisPageComponent />
     </Suspense>
   );
 }
+
+    
