@@ -2,7 +2,7 @@
 "use client";
 import React, { useState, useEffect, Suspense, useCallback } from "react";
 import type { ModelConfig, PerformanceMetric } from "@/types/entities"; // Using existing types
-import { getInitialZpeAnalysis, type GetInitialZpeAnalysisInput, type GetInitialZpeAnalysisOutput } from "@/ai/flows/get-initial-zpe-analysis-flow";
+import { getInitialZpeAnalysis, type GetInitialZpeAnalysisInput, type GetInitialZpeAnalysisOutput } from "@/ai/flows/get-initial-zpe-analysis-flow"; // Corrected import name
 import { getZpeChatResponseFlow, type GetZpeChatResponseInput, type GetZpeChatResponseOutput } from "@/ai/flows/get-zpe-chat-response-flow";
 import { adviseHSQNNParameters, type HSQNNAdvisorInput, type HSQNNAdvisorOutput } from "@/ai/flows/hs-qnn-parameter-advisor";
 import type { TrainingParameters, TrainingJob, TrainingJobSummary } from "@/types/training";
@@ -23,7 +23,7 @@ import { Separator } from "@/components/ui/separator";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
 import { z } from "zod";
-import { ai } from '@/ai/genkit';
+// ai and genkit's z were removed as they should be used within flows.
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
@@ -74,7 +74,7 @@ function AIAnalysisPageComponent() {
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [aiInsights, setAiInsights] = useState<GetInitialZpeAnalysisOutput | null>(null);
   const [generalOptimizationSuggestions, setGeneralOptimizationSuggestions] = useState<GetInitialZpeAnalysisOutput['optimization_recommendations']>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingInitialData, setIsLoadingInitialData] = useState(true);
 
   // State for specific job advice
   const [completedJobsList, setCompletedJobsList] = useState<TrainingJobSummary[]>([]);
@@ -87,7 +87,7 @@ function AIAnalysisPageComponent() {
 
 
   const fetchCompletedJobsList = useCallback(async () => {
-    setIsLoadingSpecificAdvice(true); // Use specific loading for this part
+    setIsLoadingSpecificAdvice(true); 
     setSpecificAdviceError(null);
     try {
       const response = await fetch(`${API_BASE_URL}/jobs?limit=50`);
@@ -105,7 +105,7 @@ function AIAnalysisPageComponent() {
     } finally {
       setIsLoadingSpecificAdvice(false);
     }
-  }, [selectedJobIdForAdvice]);
+  }, [selectedJobIdForAdvice]); // Added selectedJobIdForAdvice
 
   useEffect(() => {
     fetchCompletedJobsList();
@@ -140,10 +140,11 @@ function AIAnalysisPageComponent() {
 
   useEffect(() => {
     const fetchData = async () => {
-      setIsLoading(true);
+      setIsLoadingInitialData(true);
       try {
-        const modelConfigsData: ModelConfig[] = [];
-        const performanceMetricsData: PerformanceMetric[] = [];
+        // Simulate fetching initial configs and metrics if needed, or rely on generateInitialAnalysis with default values
+        const modelConfigsData: ModelConfig[] = []; // Or fetch from your backend if you have a config store
+        const performanceMetricsData: PerformanceMetric[] = []; // Or fetch recent metrics from your backend
         setConfigs(modelConfigsData);
         setMetrics(performanceMetricsData);
         await generateInitialAnalysis(modelConfigsData, performanceMetricsData);
@@ -156,7 +157,7 @@ function AIAnalysisPageComponent() {
           attention_areas: ["Data fetching failed."]
         });
       }
-      setIsLoading(false);
+      setIsLoadingInitialData(false);
     };
     fetchData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -213,12 +214,10 @@ function AIAnalysisPageComponent() {
     setIsAnalyzing(true);
     try {
       const inputForAI: GetZpeChatResponseInput = { userPrompt: tempCurrentMessage };
-      const result = await getZpeChatResponseFlow(inputForAI);
+      const result = await getZpeChatResponseFlow(inputForAI); // Using the simplified flow
       const aiMessage: ChatMessage = {
         id: Date.now() + 1, type: "ai",
         content: result.response || "I'm having trouble. Could you rephrase?",
-        // suggestions: result.suggestions || [], // Assuming flow provides these
-        // followUp: result.followUpQuestions || [], // Assuming flow provides these
         timestamp: new Date()
       };
       setChatMessages(prev => [...prev, aiMessage]);
@@ -273,7 +272,7 @@ function AIAnalysisPageComponent() {
     }
     const inputForAI: HSQNNAdvisorInput = {
       previousJobId: selectedPreviousJobDetails.job_id,
-      previousZpeEffects: selectedPreviousJobDetails.zpe_effects,
+      previousZpeEffects: selectedPreviousJobDetails.zpe_effects || Array(6).fill(0), // Fallback for zpe_effects
       previousTrainingParameters: validatedPreviousParams,
       hnnObjective: adviceObjective,
     };
@@ -373,7 +372,6 @@ function AIAnalysisPageComponent() {
           </TabsList>
 
           <TabsContent value="chat" className="space-y-4">
-            {/* Chat UI remains the same */}
             <div className="grid lg:grid-cols-3 gap-6">
               <Card className="lg:col-span-2">
                 <CardHeader>
@@ -417,8 +415,7 @@ function AIAnalysisPageComponent() {
           </TabsContent>
 
           <TabsContent value="insights" className="space-y-4">
-            {/* Auto Analysis UI remains the same */}
-             {isLoading || isGeneratingInsights ? (<Card><CardContent className="flex items-center justify-center h-64"><div className="flex items-center gap-2"><Loader2 className="h-6 w-6 animate-spin" /><span>{isLoading ? "Loading model data..." : "AI generating insights..."}</span></div></CardContent></Card>)
+             {isLoadingInitialData || isGeneratingInsights ? (<Card><CardContent className="flex items-center justify-center h-64"><div className="flex items-center gap-2"><Loader2 className="h-6 w-6 animate-spin" /><span>{isLoadingInitialData ? "Loading model data..." : "AI generating insights..."}</span></div></CardContent></Card>)
             : aiInsights ? (
               <div className="grid md:grid-cols-2 gap-6">
                 <Card><CardHeader><CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-green-500" />Performance Assessment</CardTitle></CardHeader><CardContent><p className="text-sm leading-relaxed whitespace-pre-wrap">{aiInsights.performance_assessment}</p></CardContent></Card>
@@ -459,9 +456,15 @@ function AIAnalysisPageComponent() {
                     <Card className="bg-muted/30 p-3 text-xs">
                         <CardHeader className="p-0 pb-2"><CardTitle className="text-sm">Selected Job Context</CardTitle></CardHeader>
                         <CardContent className="p-0 space-y-0.5">
-                            <p><strong>Model:</strong> {selectedPreviousJobDetails.parameters.modelName}</p>
-                            <p><strong>Accuracy:</strong> {selectedPreviousJobDetails.accuracy.toFixed(2)}% | <strong>Loss:</strong> {selectedPreviousJobDetails.loss.toFixed(4)}</p>
-                            <p><strong>ZPE Effects (avg):</strong> [{selectedPreviousJobDetails.zpe_effects.map(z => z.toFixed(3)).join(', ')}]</p>
+                            <p><strong>Model:</strong> {selectedPreviousJobDetails.parameters?.modelName || 'N/A'}</p>
+                            <p><strong>Accuracy:</strong> {selectedPreviousJobDetails.accuracy?.toFixed(2) || 'N/A'}% | <strong>Loss:</strong> {selectedPreviousJobDetails.loss?.toFixed(4) || 'N/A'}</p>
+                            <p>
+                                <strong>ZPE Effects (avg):</strong> 
+                                {Array.isArray(selectedPreviousJobDetails.zpe_effects) && selectedPreviousJobDetails.zpe_effects.length > 0 
+                                    ? `[${selectedPreviousJobDetails.zpe_effects.map(z => z?.toFixed(3) || 'N/A').join(', ')}]`
+                                    : 'N/A'
+                                }
+                            </p>
                         </CardContent>
                     </Card>
                 )}
@@ -508,7 +511,7 @@ function AIAnalysisPageComponent() {
                 <CardDescription>Based on the overall summary of your training runs.</CardDescription>
               </CardHeader>
               <CardContent>
-                {isLoading || isGeneratingInsights ? (<div className="flex items-center justify-center h-40"><Loader2 className="h-6 w-6 animate-spin" /></div>)
+                {isLoadingInitialData || isGeneratingInsights ? (<div className="flex items-center justify-center h-40"><Loader2 className="h-6 w-6 animate-spin" /></div>)
                 : generalOptimizationSuggestions && generalOptimizationSuggestions.length > 0 ? (
                   <div className="grid gap-4 md:grid-cols-2">
                     {generalOptimizationSuggestions.map((suggestion, idx) => (
@@ -539,12 +542,8 @@ function AIAnalysisPageComponent() {
 
 export default function AIAnalysisPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <span className="ml-2">Loading AI Analysis Dashboard...</span></div>}>
+    <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <span className="ml-2">Loading AI Analysis Dashboard... (Suspense Active)</span></div>}>
       <AIAnalysisPageComponent />
     </Suspense>
   );
 }
-
-    
-
-    
