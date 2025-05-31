@@ -1,7 +1,7 @@
 
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useForm, Controller, useFieldArray } from "react-hook-form";
+import { useForm, Controller, useFieldArray, Control, FieldPath, FieldValues } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { TrainingParameters, TrainingJob, TrainingJobSummary } from "@/types/training";
@@ -19,6 +19,7 @@ import { Play, StopCircle, List, Zap, Settings, RefreshCw, AlertTriangle, CheckC
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
@@ -50,8 +51,12 @@ export default function TrainModelPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pollingIntervalId, setPollingIntervalId] = useState<NodeJS.Timeout | null>(null);
   const [chartData, setChartData] = useState<any[]>([]);
+  
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const prefillEffectRan = useRef(false);
 
-  const { control, handleSubmit, reset, watch } = useForm<TrainingParameters>({
+  const { control, handleSubmit, reset, watch, formState: { errors } } = useForm<TrainingParameters>({
     resolver: zodResolver(trainingFormSchema),
     defaultValues: {
       modelName: "ZPE-Colab-Sim",
@@ -68,6 +73,50 @@ export default function TrainModelPage() {
       baseConfigId: undefined,
     },
   });
+
+  useEffect(() => {
+    if (prefillEffectRan.current || typeof window === 'undefined') return; // Ensure runs only once and client-side
+
+    const prefillJobId = searchParams.get("prefill");
+    if (prefillJobId) {
+      const loadAndPrefillJob = async () => {
+        toast({ title: "Pre-filling form...", description: `Loading parameters from job ${prefillJobId.slice(-6)}` });
+        try {
+          const response = await fetch(`${API_BASE_URL}/status/${prefillJobId}`);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch job details for prefill: ${response.statusText}`);
+          }
+          const jobToPrefill: TrainingJob = await response.json();
+          
+          const validatedParams = trainingFormSchema.safeParse(jobToPrefill.parameters);
+
+          if (validatedParams.success) {
+            const paramsWithBaseId = {
+              ...validatedParams.data,
+              modelName: `${validatedParams.data.modelName}_retrain_${Date.now().toString().slice(-4)}`,
+              baseConfigId: prefillJobId,
+            };
+            reset(paramsWithBaseId);
+            toast({ title: "Form Pre-filled", description: `Loaded parameters from job ${jobToPrefill.parameters.modelName}. Model name updated.` });
+          } else {
+            console.error("Prefill validation error:", validatedParams.error);
+            let errorMessages = "Validation errors: ";
+            validatedParams.error.errors.forEach(err => {
+                errorMessages += `${err.path.join('.')}: ${err.message}. `;
+            });
+            throw new Error(`Parameters from job ${prefillJobId.slice(-6)} are not valid. ${errorMessages}`);
+          }
+        } catch (e: any) {
+          console.error("Error pre-filling form:", e);
+          toast({ title: "Pre-fill Failed", description: e.message, variant: "destructive" });
+        }
+      };
+      loadAndPrefillJob();
+      prefillEffectRan.current = true;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, reset]);
+
 
   const fetchJobsList = useCallback(async () => {
     setIsLoadingJobs(true);
@@ -102,7 +151,6 @@ export default function TrainModelPage() {
             loss: jobData.loss,
             avg_zpe: jobData.zpe_effects.reduce((a,b)=>a+b,0) / (jobData.zpe_effects.length || 1)
           };
-          // Update existing point or add new one
           const existingPointIndex = prev.findIndex(p => p.epoch === newPoint.epoch);
           if (existingPointIndex > -1) {
             const updatedPrev = [...prev];
@@ -187,7 +235,6 @@ export default function TrainModelPage() {
         if (!response.ok) throw new Error("Failed to fetch job details");
         const data: TrainingJob = await response.json();
         setActiveJob(data);
-        // Attempt to parse log messages for chart data if job is completed/failed/stopped
         if (data.log_messages && (data.status === "completed" || data.status === "failed" || data.status === "stopped")) {
           const parsedChartData = data.log_messages
             .map(log => {
@@ -197,7 +244,7 @@ export default function TrainModelPage() {
                   epoch: parseInt(match[1]),
                   accuracy: parseFloat(match[2]),
                   loss: parseFloat(match[3]),
-                  avg_zpe: data.zpe_effects.reduce((a,b)=>a+b,0) / (data.zpe_effects.length || 1)
+                  avg_zpe: data.zpe_effects && data.zpe_effects.length > 0 ? data.zpe_effects.reduce((a,b)=>a+b,0) / data.zpe_effects.length : 0
                 };
               }
               return null;
@@ -207,15 +254,14 @@ export default function TrainModelPage() {
 
             if (parsedChartData.length > 0) {
               setChartData(parsedChartData as any[]);
-            } else if (data.status === "completed") { // Fallback for completed jobs if logs don't parse
-               setChartData([{ epoch: data.current_epoch, accuracy: data.accuracy, loss: data.loss, avg_zpe: data.zpe_effects.reduce((a,b)=>a+b,0) / (data.zpe_effects.length || 1)}]);
+            } else if (data.status === "completed") { 
+               setChartData([{ epoch: data.current_epoch, accuracy: data.accuracy, loss: data.loss, avg_zpe: data.zpe_effects && data.zpe_effects.length > 0 ? data.zpe_effects.reduce((a,b)=>a+b,0) / data.zpe_effects.length : 0}]);
             }
         }
       } catch (error) {
         toast({ title: "Error fetching job details", description: (error as Error).message, variant: "destructive"});
       }
     } else { 
-      // If job is running or pending, start polling
       pollJobStatus(jobId); 
       const intervalId = setInterval(() => pollJobStatus(jobId), 2000);
       setPollingIntervalId(intervalId);
@@ -230,7 +276,7 @@ export default function TrainModelPage() {
           <div key={index} className="space-y-1">
             <Label htmlFor={`${paramName}.${index}`} className="text-xs">L{index + 1}</Label>
             <Controller
-              name={`${paramName}.${index}` as any}
+              name={`${paramName}.${index}` as `momentumParams.${number}` | `strengthParams.${number}` | `noiseParams.${number}`}
               control={control}
               render={({ field, fieldState }) => (
                 <>
@@ -241,6 +287,8 @@ export default function TrainModelPage() {
                     min="0"
                     max="1"
                     className="h-8"
+                    value={typeof field.value === 'number' ? field.value : ''}
+                    onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
                   />
                   {fieldState.error && <p className="text-xs text-destructive">{fieldState.error.message}</p>}
                 </>
@@ -299,7 +347,7 @@ export default function TrainModelPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Zap className="h-5 w-5 text-primary"/> Training Monitor</CardTitle>
             {activeJob ? (
-              <CardDescription>Status for Job ID: <span className="font-mono">{activeJob.job_id}</span> ({activeJob.parameters.modelName})</CardDescription>
+              <CardDescription>Status for Job ID: <span className="font-mono">{activeJob.job_id.replace('zpe_job_','')}</span> ({activeJob.parameters.modelName})</CardDescription>
             ) : (
               <CardDescription>No active training job. Start one or select from history.</CardDescription>
             )}
@@ -330,7 +378,7 @@ export default function TrainModelPage() {
                   <MetricDisplay label="Epoch" value={`${activeJob.current_epoch}/${activeJob.total_epochs}`} />
                   <MetricDisplay label="Accuracy" value={`${activeJob.accuracy.toFixed(2)}%`} />
                   <MetricDisplay label="Loss" value={`${activeJob.loss.toFixed(4)}`} />
-                  <MetricDisplay label="Avg ZPE Effect" value={`${(activeJob.zpe_effects.reduce((a,b)=>a+b,0) / (activeJob.zpe_effects.length || 1)).toFixed(3)}`} />
+                  <MetricDisplay label="Avg ZPE Effect" value={`${(activeJob.zpe_effects && activeJob.zpe_effects.length > 0 ? activeJob.zpe_effects.reduce((a,b)=>a+b,0) / activeJob.zpe_effects.length : 0).toFixed(3)}`} />
                 </div>
                 
                 <div className="h-[250px] mt-4">
@@ -351,7 +399,7 @@ export default function TrainModelPage() {
 
                 <Label>Logs</Label>
                 <ScrollArea className="h-40 w-full rounded-md border p-2">
-                  {activeJob.log_messages.slice().reverse().map((log, index) => (
+                  {activeJob.log_messages && activeJob.log_messages.slice().reverse().map((log, index) => (
                     <p key={index} className="text-xs font-mono">{log}</p>
                   ))}
                 </ScrollArea>
@@ -417,32 +465,80 @@ export default function TrainModelPage() {
   );
 }
 
-const FieldController = ({ control, name, label, type = "text", placeholder, min, step }) => (
+interface FieldControllerProps<TFieldValues extends FieldValues, TName extends FieldPath<TFieldValues>> {
+  control: Control<TFieldValues>;
+  name: TName;
+  label: string;
+  type?: string;
+  placeholder?: string;
+  min?: string | number;
+  step?: string | number;
+}
+
+const FieldController = <TFieldValues extends FieldValues = TrainingParameters>({
+  control,
+  name,
+  label,
+  type = "text",
+  placeholder,
+  min,
+  step,
+}: FieldControllerProps<TFieldValues, FieldPath<TFieldValues>>) => (
   <div className="space-y-1">
-    <Label htmlFor={name}>{label}</Label>
+    <Label htmlFor={name as string}>{label}</Label>
     <Controller
-      name={name as any}
+      name={name}
       control={control}
-      render={({ field, fieldState }) => (
-        <>
-          <Input {...field} id={name} type={type} placeholder={placeholder} min={min} step={step} className={fieldState.error ? "border-destructive" : ""} />
-          {fieldState.error && <p className="text-xs text-destructive">{fieldState.error.message}</p>}
-        </>
-      )}
+      render={({ field, fieldState }) => {
+        const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+            if (type === 'number') {
+                const value = e.target.value;
+                field.onChange(value === '' ? '' : parseFloat(value));
+            } else {
+                field.onChange(e.target.value);
+            }
+        };
+        return (
+            <>
+                <Input
+                    {...field}
+                    id={name as string}
+                    type={type}
+                    placeholder={placeholder}
+                    min={min}
+                    step={step}
+                    value={(type === 'number' && (typeof field.value === 'number' && !isNaN(field.value))) ? field.value : (field.value || '')}
+                    onChange={handleChange}
+                    className={fieldState.error ? "border-destructive" : ""}
+                />
+                {fieldState.error && <p className="text-xs text-destructive">{fieldState.error.message}</p>}
+            </>
+        );
+    }}
     />
   </div>
 );
 
-const FieldControllerSwitch = ({ control, name, label }) => (
+interface FieldControllerSwitchProps<TFieldValues extends FieldValues, TName extends FieldPath<TFieldValues>> {
+  control: Control<TFieldValues>;
+  name: TName;
+  label: string;
+}
+
+const FieldControllerSwitch = <TFieldValues extends FieldValues = TrainingParameters>({
+  control,
+  name,
+  label,
+}: FieldControllerSwitchProps<TFieldValues, FieldPath<TFieldValues>>) => (
   <div className="flex items-center justify-between space-x-2 border p-3 rounded-md">
-    <Label htmlFor={name} className="cursor-pointer">{label}</Label>
+    <Label htmlFor={name as string} className="cursor-pointer">{label}</Label>
     <Controller
-      name={name as any}
+      name={name}
       control={control}
       render={({ field }) => (
         <Switch
-          id={name}
-          checked={field.value}
+          id={name as string}
+          checked={field.value as boolean}
           onCheckedChange={field.onChange}
         />
       )}
@@ -450,10 +546,9 @@ const FieldControllerSwitch = ({ control, name, label }) => (
   </div>
 );
 
-const MetricDisplay = ({ label, value }) => (
+const MetricDisplay = ({ label, value }: { label: string; value: string | number }) => (
   <div className="bg-muted p-2 rounded-md text-center">
     <p className="text-xs text-muted-foreground">{label}</p>
     <p className="font-semibold">{value}</p>
   </div>
 );
-
