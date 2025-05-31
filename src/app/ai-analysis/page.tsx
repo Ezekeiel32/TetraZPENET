@@ -1,8 +1,7 @@
-
 "use client";
 import React, { useState, useEffect, Suspense } from "react";
 import type { ModelConfig, PerformanceMetric } from "@/types/entities"; // Using existing types
-import { getInitialZpeAnalysisFlow, type GetInitialZpeAnalysisOutput } from "@/ai/flows/get-initial-zpe-analysis-flow";
+import { getInitialZpeAnalysis, type GetInitialZpeAnalysisInput, type GetInitialZpeAnalysisOutput } from "@/ai/flows/get-initial-zpe-analysis-flow"; // Corrected import name
 import { getZpeChatResponseFlow, type GetZpeChatResponseInput, type GetZpeChatResponseOutput } from "@/ai/flows/get-zpe-chat-response-flow";
 
 import {
@@ -17,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
-// Genkit's ai instance and z will be used within the flows themselves, no need to import here typically
+// Zod and ai from Genkit are used within the flows themselves.
 
 interface ChatMessage {
   id: number;
@@ -29,7 +28,7 @@ interface ChatMessage {
   formattedTimestamp?: string;
 }
 
-// OptimizationSuggestion and AiInsights are inferred from GetInitialZpeAnalysisOutput type
+// OptimizationSuggestion and AiInsights (now GetInitialZpeAnalysisOutput) are effectively defined by the imported flow types.
 
 function AIAnalysisPageComponent() {
   const router = useRouter();
@@ -85,7 +84,7 @@ function AIAnalysisPageComponent() {
   const generateInitialAnalysis = async (currentConfigs: ModelConfig[], currentMetrics: PerformanceMetric[]) => {
     setIsGeneratingInsights(true);
     try {
-      const analysisData = {
+      const analysisData: GetInitialZpeAnalysisInput = { // Ensure type matches the flow input
         totalConfigs: currentConfigs.length,
         bestAccuracy: currentConfigs.length > 0 ? Math.max(...currentConfigs.map(c => c.accuracy || 0)) : 0,
         averageAccuracy: currentConfigs.length > 0 ? currentConfigs.reduce((sum, c) => sum + (c.accuracy || 0), 0) / currentConfigs.length : 0,
@@ -93,7 +92,7 @@ function AIAnalysisPageComponent() {
         recentMetricsCount: currentMetrics.slice(-10).length
       };
 
-      const result = await getInitialZpeAnalysisFlow(analysisData);
+      const result = await getInitialZpeAnalysis(analysisData); // Corrected function call
 
       if (result) {
         setAiInsights(result);
@@ -143,7 +142,7 @@ function AIAnalysisPageComponent() {
           previousMessages: chatMessages.slice(-5).map(m => ({role: m.type, content: m.content}))
       };
 
-      const result = await getZpeChatResponseFlow(inputForAI);
+      const result = await getZpeChatResponseFlow(inputForAI); // Call the imported flow function
 
       const aiMessage: ChatMessage = {
         id: Date.now() + 1, type: "ai",
@@ -327,5 +326,3 @@ export default function AIAnalysisPage() {
     </Suspense>
   );
 }
-
-    
