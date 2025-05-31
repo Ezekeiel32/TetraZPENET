@@ -250,17 +250,22 @@ export default function ModelConfigurationsPage() {
       if (!prev.parameters) {
          prev.parameters = {} as TrainingParameters; // Initialize parameters if it's null/undefined
       }
+      const paramArray = prev.parameters[paramType];
       // Access the parameter array within the nested parameters object
-      const updatedArray = [...(prev.parameters[paramType] as number[])];
-      updatedArray[index] = value;
-      // Update the nested parameters object and the overall state
-      return {
-        ...prev,
-        parameters: {
-          ...prev.parameters,
-          [paramType]: updatedArray,
-        },
-      };
+      if (Array.isArray(paramArray)) {
+        const updatedArray = [...paramArray];
+        updatedArray[index] = value;
+        // Update the nested parameters object and the overall state
+        return {
+          ...prev,
+          parameters: {
+            ...prev.parameters,
+            [paramType]: updatedArray,
+          },
+        };
+      }
+      console.warn(`Parameter ${String(paramType)} is not an array in newConfig.parameters`);
+      return prev;
     });
   };
 
@@ -498,7 +503,7 @@ export default function ModelConfigurationsPage() {
                                // Placeholder for coupling: using a default or another parameter if available
                               const coupling = 0.5; // Replace with actual coupling data if available
 
-                              const x = 200 + (strength - noise) * 140; const y = 200 + (coupling - momentum) * 140; /* Scaled to 140 to fit better */
+                              const x = 200 + (strength - noise) * 140; const y = 200 + (coupling - momentum) * 140; {/* Scaled to 140 to fit better */}
                               return (<g key={idx}><circle cx={x} cy={y} r={6} fill={idx === 3 && selectedConfig.parameters.quantumMode ? "hsl(var(--chart-2))" : "hsl(var(--chart-1))"} fillOpacity="0.7"/><text x={x} y={y - 8} fill="hsl(var(--foreground))" fontSize="10" textAnchor="middle">L{idx+1}</text></g>);
                             })}
                           </svg></div></div></div>
@@ -534,3 +539,4 @@ export default function ModelConfigurationsPage() {
   );
 }
 
+    
