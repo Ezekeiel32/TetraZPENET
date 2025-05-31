@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useState, useEffect, Suspense } from "react";
 import type { ModelConfig, PerformanceMetric } from "@/types/entities"; // Using existing types
@@ -22,12 +23,13 @@ interface ChatMessage {
   id: number;
   type: "user" | "ai";
   content: string;
-  // Removed suggestions and followUp for simplified diagnostic version
+  suggestions?: string[]; // Added from simplified flow
+  followUp?: string[]; // Added from simplified flow, original was follow_up_questions
   timestamp: Date;
   formattedTimestamp?: string;
 }
 
-// OptimizationSuggestion and AiInsights (now GetInitialZpeAnalysisOutput) are effectively defined by the imported flow types.
+// OptimizationSuggestion is part of GetInitialZpeAnalysisOutput type from the flow
 
 function AIAnalysisPageComponent() {
   const router = useRouter();
@@ -133,7 +135,7 @@ function AIAnalysisPageComponent() {
     setIsAnalyzing(true);
 
     try {
-      // Simplified input for diagnostic version
+      // Using the simplified input for the diagnostic version of the chat flow
       const inputForAI: GetZpeChatResponseInput = {
           userPrompt: tempCurrentMessage,
       };
@@ -143,7 +145,9 @@ function AIAnalysisPageComponent() {
       const aiMessage: ChatMessage = {
         id: Date.now() + 1, type: "ai",
         content: result.response || "I'm having trouble. Could you rephrase?",
-        // suggestions and followUp removed for diagnostic version
+        // Suggestions and followUp are not part of the simplified output schema
+        suggestions: [], // Default to empty
+        followUp: [],    // Default to empty
         timestamp: new Date()
       };
       setChatMessages(prev => [...prev, aiMessage]);
@@ -183,9 +187,9 @@ function AIAnalysisPageComponent() {
     knownKeys.forEach(key => {
       if (paramsToPass[key] !== undefined) {
         if (Array.isArray(paramsToPass[key])) {
-          query.set(key, JSON.stringify(paramsToPass[key]));
+          query.set(String(key), JSON.stringify(paramsToPass[key])); // Fixed: Ensure key is string
         } else {
-          query.set(key, String(paramsToPass[key]));
+          query.set(String(key), String(paramsToPass[key])); // Fixed: Ensure key is string
         }
       }
     });
