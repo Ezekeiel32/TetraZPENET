@@ -1,7 +1,7 @@
 
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useForm, Controller, useFieldArray, Control, FieldPath, FieldValues } from "react-hook-form";
+import { useForm, Controller, Control, FieldPath, FieldValues } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { TrainingParameters, TrainingJob, TrainingJobSummary } from "@/types/training";
@@ -35,7 +35,7 @@ const trainingFormSchema = z.object({
   quantumCircuitSize: z.coerce.number().int().min(4).max(64),
   labelSmoothing: z.coerce.number().min(0).max(0.5),
   quantumMode: z.boolean(),
-  baseConfigId: z.string().optional(),
+  baseConfigId: z.string().nullable().optional(), // Updated to allow null
 });
 
 const defaultZPEParams = {
@@ -56,65 +56,111 @@ export default function TrainModelPage() {
   const searchParams = useSearchParams();
   const prefillEffectRan = useRef(false);
 
+  const defaultFormValues: TrainingParameters = {
+    modelName: "ZPE-Sim-V1",
+    totalEpochs: 30,
+    batchSize: 32,
+    learningRate: 0.001,
+    weightDecay: 0.0001,
+    momentumParams: defaultZPEParams.momentum,
+    strengthParams: defaultZPEParams.strength,
+    noiseParams: defaultZPEParams.noise,
+    quantumCircuitSize: 32,
+    labelSmoothing: 0.1,
+    quantumMode: true,
+    baseConfigId: undefined,
+  };
+
   const { control, handleSubmit, reset, watch, formState: { errors } } = useForm<TrainingParameters>({
     resolver: zodResolver(trainingFormSchema),
-    defaultValues: {
-      modelName: "ZPE-Colab-Sim",
-      totalEpochs: 30,
-      batchSize: 32,
-      learningRate: 0.001,
-      weightDecay: 0.0001,
-      momentumParams: defaultZPEParams.momentum,
-      strengthParams: defaultZPEParams.strength,
-      noiseParams: defaultZPEParams.noise,
-      quantumCircuitSize: 32,
-      labelSmoothing: 0.1,
-      quantumMode: true,
-      baseConfigId: undefined,
-    },
+    defaultValues: defaultFormValues,
   });
 
   useEffect(() => {
-    if (prefillEffectRan.current || typeof window === 'undefined') return; // Ensure runs only once and client-side
+    if (prefillEffectRan.current || typeof window === 'undefined') return;
 
     const prefillJobId = searchParams.get("prefill");
-    if (prefillJobId) {
-      const loadAndPrefillJob = async () => {
-        toast({ title: "Pre-filling form...", description: `Loading parameters from job ${prefillJobId.slice(-6)}` });
-        try {
-          const response = await fetch(`${API_BASE_URL}/status/${prefillJobId}`);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch job details for prefill: ${response.statusText}`);
-          }
-          const jobToPrefill: TrainingJob = await response.json();
-          
-          const validatedParams = trainingFormSchema.safeParse(jobToPrefill.parameters);
+    const paramsToPrefill: Partial<TrainingParameters> = {};
+    let hasDirectParams = false;
 
-          if (validatedParams.success) {
-            const paramsWithBaseId = {
-              ...validatedParams.data,
-              modelName: `${validatedParams.data.modelName}_retrain_${Date.now().toString().slice(-4)}`,
-              baseConfigId: prefillJobId,
-            };
-            reset(paramsWithBaseId);
-            toast({ title: "Form Pre-filled", description: `Loaded parameters from job ${jobToPrefill.parameters.modelName}. Model name updated.` });
-          } else {
-            console.error("Prefill validation error:", validatedParams.error);
-            let errorMessages = "Validation errors: ";
-            validatedParams.error.errors.forEach(err => {
-                errorMessages += `${err.path.join('.')}: ${err.message}. `;
-            });
-            throw new Error(`Parameters from job ${prefillJobId.slice(-6)} are not valid. ${errorMessages}`);
-          }
-        } catch (e: any) {
-          console.error("Error pre-filling form:", e);
-          toast({ title: "Pre-fill Failed", description: e.message, variant: "destructive" });
+    // Check for direct parameters from query
+    for (const key in defaultFormValues) {
+        if (searchParams.has(key)) {
+            hasDirectParams = true;
+            const value = searchParams.get(key);
+            if (value !== null) {
+                if (Array.isArray(defaultFormValues[key as keyof TrainingParameters])) {
+                    try {
+                        (paramsToPrefill as any)[key] = JSON.parse(value);
+                    } catch (e) {
+                        console.error(`Error parsing query param ${key}:`, e);
+                        toast({ title: "Prefill Error", description: `Could not parse ${key} from URL. Using default.`, variant: "destructive" });
+                    }
+                } else if (typeof defaultFormValues[key as keyof TrainingParameters] === 'number') {
+                    (paramsToPrefill as any)[key] = parseFloat(value);
+                } else if (typeof defaultFormValues[key as keyof TrainingParameters] === 'boolean') {
+                    (paramsToPrefill as any)[key] = value === 'true';
+                } else {
+                    (paramsToPrefill as any)[key] = value;
+                }
+            }
         }
-      };
-      loadAndPrefillJob();
-      prefillEffectRan.current = true;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    
+    const loadAndPrefill = async () => {
+      if (hasDirectParams) {
+          toast({ title: "Pre-filling form...", description: "Loading parameters from URL." });
+          // Validate and reset
+          const validatedParams = trainingFormSchema.safeParse({...defaultFormValues, ...paramsToPrefill});
+          if (validatedParams.success) {
+              reset(validatedParams.data);
+              toast({ title: "Form Pre-filled", description: "Parameters loaded from URL." });
+          } else {
+              console.error("Direct prefill validation error:", validatedParams.error);
+              toast({ title: "Prefill Validation Error", description: "Some parameters from URL were invalid. Defaults used where necessary.", variant: "destructive" });
+              reset({...defaultFormValues, ...paramsToPrefill}); // Reset with what we have, let validation show errors
+          }
+      } else if (prefillJobId) {
+          toast({ title: "Pre-filling form...", description: `Loading parameters from job ${prefillJobId.slice(-6)}` });
+          try {
+            const response = await fetch(`${API_BASE_URL}/status/${prefillJobId}`);
+            if (!response.ok) {
+              throw new Error(`Failed to fetch job details for prefill: ${response.statusText}`);
+            }
+            const jobToPrefill: TrainingJob = await response.json();
+            
+            const paramsWithNewNameAndBaseId = {
+                ...jobToPrefill.parameters,
+                modelName: `${jobToPrefill.parameters.modelName}_retrain_${Date.now().toString().slice(-4)}`,
+                baseConfigId: prefillJobId,
+            };
+            
+            const validatedParams = trainingFormSchema.safeParse(paramsWithNewNameAndBaseId);
+            if (validatedParams.success) {
+                reset(validatedParams.data);
+                toast({ title: "Form Pre-filled", description: `Loaded parameters from job ${jobToPrefill.parameters.modelName}. Model name updated.` });
+            } else {
+                console.error("Job prefill validation error:", validatedParams.error);
+                let errorMessages = "Validation errors: ";
+                validatedParams.error.errors.forEach(err => {
+                    errorMessages += `${err.path.join('.')}: ${err.message}. `;
+                });
+                throw new Error(`Parameters from job ${prefillJobId.slice(-6)} are not valid. ${errorMessages}`);
+            }
+          } catch (e: any) {
+            console.error("Error pre-filling form from job ID:", e);
+            toast({ title: "Pre-fill Failed", description: e.message, variant: "destructive" });
+          }
+      }
+      prefillEffectRan.current = true;
+    };
+
+    if (hasDirectParams || prefillJobId) {
+        loadAndPrefill();
+    } else {
+        prefillEffectRan.current = true; // Mark as run even if no prefill params
+    }
+
   }, [searchParams, reset]);
 
 
@@ -149,7 +195,7 @@ export default function TrainModelPage() {
             epoch: jobData.current_epoch, 
             accuracy: jobData.accuracy, 
             loss: jobData.loss,
-            avg_zpe: jobData.zpe_effects.reduce((a,b)=>a+b,0) / (jobData.zpe_effects.length || 1)
+            avg_zpe: jobData.zpe_effects && jobData.zpe_effects.length > 0 ? jobData.zpe_effects.reduce((a,b)=>a+b,0) / (jobData.zpe_effects.length) : 0
           };
           const existingPointIndex = prev.findIndex(p => p.epoch === newPoint.epoch);
           if (existingPointIndex > -1) {
@@ -238,7 +284,8 @@ export default function TrainModelPage() {
         if (data.log_messages && (data.status === "completed" || data.status === "failed" || data.status === "stopped")) {
           const parsedChartData = data.log_messages
             .map(log => {
-              const match = log.match(/Epoch (\d+)\/\d+ - Accuracy: ([\d.]+)\%, Loss: ([\d.]+)/);
+              const match = log.match(/Epoch (\d+)\/\d+ - Accuracy: ([\d.]+)\%, Loss: ([\d.]+)/) 
+                         || log.match(/E(\d+) END - TrainL: [\d.]+, ValAcc: ([\d.]+)%, ValL: ([\d.]+)/); // Added fallback match for end of epoch log
               if (match) {
                 return {
                   epoch: parseInt(match[1]),
@@ -335,6 +382,26 @@ export default function TrainModelPage() {
                   <FieldController control={control} name="quantumCircuitSize" label="Quantum Circuit Size (Qubits)" type="number" min="1" />
                 </TabsContent>
               </Tabs>
+               <div className="space-y-1 pt-2">
+                <Label htmlFor="baseConfigId">Base Config ID (Optional)</Label>
+                <Controller
+                    name="baseConfigId"
+                    control={control}
+                    render={({ field, fieldState }) => (
+                        <>
+                            <Input
+                                {...field}
+                                id="baseConfigId"
+                                placeholder="Previous job ID to build upon"
+                                value={field.value || ''}
+                                className={fieldState.error ? "border-destructive" : ""}
+                            />
+                            {fieldState.error && <p className="text-xs text-destructive">{fieldState.error.message}</p>}
+                        </>
+                    )}
+                />
+                <p className="text-xs text-muted-foreground">If continuing/evolving from a previous job.</p>
+              </div>
               <Button type="submit" className="w-full mt-4" disabled={isSubmitting || (activeJob?.status === "running" || activeJob?.status === "pending")}>
                 {isSubmitting ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
                 Start Training
@@ -493,6 +560,7 @@ const FieldController = <TFieldValues extends FieldValues = TrainingParameters>(
         const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
             if (type === 'number') {
                 const value = e.target.value;
+                // Allow empty string for temporary input state, coerce to number on blur/submit
                 field.onChange(value === '' ? '' : parseFloat(value));
             } else {
                 field.onChange(e.target.value);
@@ -507,6 +575,7 @@ const FieldController = <TFieldValues extends FieldValues = TrainingParameters>(
                     placeholder={placeholder}
                     min={min}
                     step={step}
+                    // For controlled number inputs, ensure value is string or number
                     value={(type === 'number' && (typeof field.value === 'number' && !isNaN(field.value))) ? field.value : (field.value || '')}
                     onChange={handleChange}
                     className={fieldState.error ? "border-destructive" : ""}

@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI agent to analyze ZPE quantum neural network performance data.
@@ -9,6 +10,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
+import type { TrainingParameters } from '@/types/training'; // For suggested_parameters type hint
 
 const GetInitialZpeAnalysisInputSchema = z.object({
   totalConfigs: z.number().describe("Total number of model configurations available."),
@@ -19,6 +21,24 @@ const GetInitialZpeAnalysisInputSchema = z.object({
 });
 export type GetInitialZpeAnalysisInput = z.infer<typeof GetInitialZpeAnalysisInputSchema>;
 
+// Define the Zod schema for TrainingParameters locally for the flow if not easily importable
+// This should mirror the structure in @/types/training.ts
+const TrainingParametersSchemaInternalPartial = z.object({
+  totalEpochs: z.number().int().min(1).max(200).optional(),
+  batchSize: z.number().int().min(8).max(256).optional(),
+  learningRate: z.number().min(0.00001).max(0.1).optional(),
+  weightDecay: z.number().min(0).max(0.1).optional(),
+  momentumParams: z.array(z.number().min(0).max(1)).length(6).optional().describe("Array of 6 momentum values (0.0-1.0) for each layer."),
+  strengthParams: z.array(z.number().min(0).max(1)).length(6).optional().describe("Array of 6 strength values (0.0-1.0) for each layer."),
+  noiseParams: z.array(z.number().min(0).max(1)).length(6).optional().describe("Array of 6 noise values (0.0-1.0) for each layer."),
+  quantumCircuitSize: z.number().int().min(4).max(64).optional(),
+  labelSmoothing: z.number().min(0).max(0.5).optional(),
+  quantumMode: z.boolean().optional(),
+  modelName: z.string().min(3).optional(),
+  baseConfigId: z.string().nullable().optional(),
+});
+
+
 const GetInitialZpeAnalysisOutputSchema = z.object({
   performance_assessment: z.string().describe("Overall assessment of the ZPE network's performance based on provided summary data. Mention key stats like best/average accuracy."),
   quantum_insights: z.string().describe("Insights specific to quantum effects, ZPE interactions, or quantum noise if applicable, considering the number of quantum configs."),
@@ -28,7 +48,11 @@ const GetInitialZpeAnalysisOutputSchema = z.object({
       description: z.string().describe("A detailed description of the suggested optimization and its rationale."),
       priority: z.enum(["High", "Medium", "Low"]).describe("Priority level of the suggestion (High, Medium, or Low)."),
       expected_impact: z.string().describe("What is the expected impact if this suggestion is implemented (e.g., 'Potential +0.5% accuracy', 'Improved stability')."),
-      suggested_parameters: z.any().optional().describe("Specific parameter changes to try, if applicable. E.g., { learningRate: 0.0005 } or null if not specific.")
+      suggested_parameters: TrainingParametersSchemaInternalPartial.nullable().optional().describe(
+        "Specific parameter changes to try, if applicable. E.g., { learningRate: 0.0005 }. " +
+        "If suggesting ZPE array parameters (momentumParams, strengthParams, noiseParams), provide the full array of 6 values. " +
+        "If no specific parameters, this can be null or an empty object."
+      )
     })
   ).min(1).max(3).describe("Provide 1 to 3 actionable recommendations to improve model performance or explore new configurations."),
   attention_areas: z.array(z.string()).min(1).max(3).describe("Provide 1 to 3 areas or specific metrics that require closer attention or might indicate issues (e.g., 'Low average accuracy despite high best accuracy', 'Few quantum configurations explored').")
@@ -55,6 +79,12 @@ Performance Summary:
 - Average Accuracy: {{averageAccuracy}}%
 - Configurations Using Quantum Noise: {{{quantumConfigs}}}
 - Recent Training Metrics Available: {{{recentMetricsCount}}}
+
+For 'optimization_recommendations':
+- If you suggest changes to array-based ZPE parameters like 'momentumParams', 'strengthParams', or 'noiseParams', you MUST provide the full array of 6 floating-point values (each between 0.0 and 1.0).
+- For scalar parameters like 'learningRate', 'totalEpochs', 'batchSize', etc., provide them as simple key-value pairs within 'suggested_parameters'.
+- 'suggested_parameters' can be null or an empty object if no specific parameter changes are advised for a recommendation.
+- Ensure modelName is suggested if appropriate for a new experiment derived from these general suggestions.
 
 Based on this data, generate your analysis.
 If there are no configurations (totalConfigs is 0), your assessment should reflect that and suggest starting some training runs.
