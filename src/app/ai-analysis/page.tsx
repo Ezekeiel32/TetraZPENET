@@ -1,8 +1,6 @@
 
 "use client";
 import React, { useState, useEffect, Suspense } from "react"; 
-// import { ModelConfig, PerformanceMetric } from "@/entities/all"; // Commented out
-// import { InvokeLLM } from "@/integrations/Core"; // Commented out
 import type { ModelConfig, PerformanceMetric, InvokeLLMResponse } from "@/types/entities";
 import { getInitialZpeAnalysisFlow, type GetInitialZpeAnalysisOutput } from "@/ai/flows/get-initial-zpe-analysis-flow";
 import { getZpeChatResponseFlow, type GetZpeChatResponseInput, type GetZpeChatResponseOutput } from "@/ai/flows/get-zpe-chat-response-flow";
@@ -19,9 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useRouter, useSearchParams, usePathname } from "next/navigation"; 
 import { toast } from "@/hooks/use-toast";
-import { z } from "zod"; // Genkit Zod import
-import { ai } from "@/ai/genkit"; // Genkit ai instance import
-
+// Removed direct zod and ai imports as they are used within the flows
 
 interface ChatMessage {
   id: number;
@@ -41,34 +37,12 @@ interface OptimizationSuggestion {
   suggested_parameters?: Partial<any>; 
 }
 
-// This interface is now defined within the GetInitialZpeAnalysisOutput type from the flow
-// interface AiInsights {
-//   performance_assessment: string;
-//   quantum_insights: string;
-//   optimization_recommendations: OptimizationSuggestion[];
-//   attention_areas: string[];
-// }
-
-// Helper to get the output schema for the AI generate call if not using a dedicated flow
-const GetInitialZpeAnalysisOutputSchema = z.object({
-  performance_assessment: z.string().describe("Overall assessment of the ZPE network's performance based on provided data."),
-  quantum_insights: z.string().describe("Insights specific to quantum effects, ZPE interactions, or quantum noise if applicable."),
-  optimization_recommendations: z.array(z.object({
-    title: z.string().describe("A concise title for the optimization suggestion."),
-    description: z.string().describe("A detailed description of the suggested optimization."),
-    priority: z.enum(["High", "Medium", "Low"]).describe("Priority level of the suggestion."),
-    expected_impact: z.string().describe("What is the expected impact if this suggestion is implemented."),
-    suggested_parameters: z.any().optional().describe("Specific parameter changes to try, if applicable. E.g., { learningRate: 0.0005, zpeStrength: [0.2, 0.2, 0.3, ...] }")
-  })).describe("Actionable recommendations to improve model performance or explore new configurations."),
-  attention_areas: z.array(z.string()).describe("Areas or specific metrics that require closer attention or might indicate issues.")
-});
-
+// Removed AiInsights and GetInitialZpeAnalysisOutputSchema as they are defined or inferred from the imported flows
 
 function AIAnalysisPageComponent() { 
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-
 
   const [configs, setConfigs] = useState<ModelConfig[]>([]);
   const [metrics, setMetrics] = useState<PerformanceMetric[]>([]); 
@@ -91,19 +65,17 @@ function AIAnalysisPageComponent() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // Simulate fetching data or use placeholders if actual fetching isn't implemented here
-        const modelConfigsData: ModelConfig[] = []; // Placeholder, replace with actual data fetching if needed
-        const performanceMetricsData: PerformanceMetric[] = []; // Placeholder
+        const modelConfigsData: ModelConfig[] = []; 
+        const performanceMetricsData: PerformanceMetric[] = []; 
 
         setConfigs(modelConfigsData);
         setMetrics(performanceMetricsData);
         
-        // Call generateInitialAnalysis after setting initial empty data
         await generateInitialAnalysis(modelConfigsData, performanceMetricsData);
         
       } catch (error) {
         console.error("Error fetching initial data:", error);
-         setAiInsights({ // Provide a default/error state for aiInsights
+         setAiInsights({ 
             performance_assessment: "Error fetching model data. Cannot perform analysis.",
             quantum_insights: "N/A",
             optimization_recommendations: [],
@@ -115,7 +87,7 @@ function AIAnalysisPageComponent() {
 
     fetchData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array ensures this runs once on mount
+  }, []); 
 
   const generateInitialAnalysis = async (currentConfigs: ModelConfig[], currentMetrics: PerformanceMetric[]) => {
     setIsGeneratingInsights(true);
@@ -128,7 +100,6 @@ function AIAnalysisPageComponent() {
         recentMetricsCount: currentMetrics.slice(-10).length 
       };
       
-      // Using the imported getInitialZpeAnalysisFlow directly
       const result = await getInitialZpeAnalysisFlow(analysisData);
 
       if (result) {
@@ -140,7 +111,7 @@ function AIAnalysisPageComponent() {
     } catch (error: any) {
       console.error("Error generating initial analysis:", error);
       toast({title: "Error", description: "Could not generate initial analysis: " + error.message, variant: "destructive"});
-      setAiInsights({ // Provide a default/error state for aiInsights
+      setAiInsights({ 
         performance_assessment: "Could not generate analysis due to an error.",
         quantum_insights: "Please check console for details.",
         optimization_recommendations: [],
@@ -162,7 +133,6 @@ function AIAnalysisPageComponent() {
     }
   }, [chatMessages]);
 
-
   const handleSendMessage = async () => {
     if (!currentMessage.trim()) return;
     const userMessage: ChatMessage = { id: Date.now(), type: "user", content: currentMessage, timestamp: new Date() };
@@ -180,14 +150,13 @@ function AIAnalysisPageComponent() {
           previousMessages: chatMessages.slice(-5).map(m => ({role: m.type, content: m.content})) 
       };
       
-      // Using the imported getZpeChatResponseFlow directly
       const result = await getZpeChatResponseFlow(inputForAI);
 
       const aiMessage: ChatMessage = {
         id: Date.now() + 1, type: "ai",
         content: result.response || "I'm having trouble. Could you rephrase?",
         suggestions: result.suggestions || [], 
-        followUp: result.followUpQuestions || [], // Using the correct field name
+        followUp: result.followUpQuestions || [], 
         timestamp: new Date()
       };
       setChatMessages(prev => [...prev, aiMessage]);
@@ -245,7 +214,6 @@ function AIAnalysisPageComponent() {
     "Analyze my best performing configuration",
     "Suggest parameters for a new experiment"
   ];
-
 
   return (
     <div className="p-6 bg-background text-foreground">
@@ -309,7 +277,7 @@ function AIAnalysisPageComponent() {
                 </CardContent>
               </Card>
               <div className="space-y-4">
-                <Card><CardHeader><CardTitle className="text-sm">Quick Questions</CardTitle></CardHeader><CardContent className="space-y-2">{quickQuestions.map((question, idx) => (<Button key={idx} variant="outline" size="sm" className="w-full text-left justify-start h-auto p-2 text-xs" onClick={() => handleQuickQuestion(question)}>{question}</Button>))}</CardContent></Card>
+                <Card><CardHeader><CardTitle className="text-sm">Quick Questions</CardTitle></CardHeader><CardContent className="space-y-2">{quickQuickQuestions.map((question, idx) => (<Button key={idx} variant="outline" size="sm" className="w-full text-left justify-start h-auto p-2 text-xs" onClick={() => handleQuickQuestion(question)}>{question}</Button>))}</CardContent></Card>
                 <Card><CardHeader><CardTitle className="text-sm">System Status</CardTitle></CardHeader>
                   <CardContent className="space-y-2">
                     <div className="flex justify-between text-sm"><span>Model Configs:</span><Badge variant="outline">{configs.length}</Badge></div>
