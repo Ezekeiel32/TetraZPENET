@@ -1,7 +1,7 @@
 
 "use client";
 import React, { useState, useEffect, Suspense } from "react"; 
-import type { ModelConfig, PerformanceMetric, InvokeLLMResponse } from "@/types/entities";
+import type { ModelConfig, PerformanceMetric } from "@/types/entities"; // Using existing types
 import { getInitialZpeAnalysisFlow, type GetInitialZpeAnalysisOutput } from "@/ai/flows/get-initial-zpe-analysis-flow";
 import { getZpeChatResponseFlow, type GetZpeChatResponseInput, type GetZpeChatResponseOutput } from "@/ai/flows/get-zpe-chat-response-flow";
 
@@ -17,7 +17,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useRouter, useSearchParams, usePathname } from "next/navigation"; 
 import { toast } from "@/hooks/use-toast";
-// Removed direct zod and ai imports as they are used within the flows
 
 interface ChatMessage {
   id: number;
@@ -29,15 +28,7 @@ interface ChatMessage {
   formattedTimestamp?: string; 
 }
 
-interface OptimizationSuggestion {
-  title: string;
-  description: string;
-  priority: string;
-  expected_impact: string;
-  suggested_parameters?: Partial<any>; 
-}
-
-// Removed AiInsights and GetInitialZpeAnalysisOutputSchema as they are defined or inferred from the imported flows
+// OptimizationSuggestion and AiInsights are inferred from GetInitialZpeAnalysisOutput type
 
 function AIAnalysisPageComponent() { 
   const router = useRouter();
@@ -277,7 +268,7 @@ function AIAnalysisPageComponent() {
                 </CardContent>
               </Card>
               <div className="space-y-4">
-                <Card><CardHeader><CardTitle className="text-sm">Quick Questions</CardTitle></CardHeader><CardContent className="space-y-2">{quickQuickQuestions.map((question, idx) => (<Button key={idx} variant="outline" size="sm" className="w-full text-left justify-start h-auto p-2 text-xs" onClick={() => handleQuickQuestion(question)}>{question}</Button>))}</CardContent></Card>
+                <Card><CardHeader><CardTitle className="text-sm">Quick Questions</CardTitle></CardHeader><CardContent className="space-y-2">{quickQuestions.map((question, idx) => (<Button key={idx} variant="outline" size="sm" className="w-full text-left justify-start h-auto p-2 text-xs" onClick={() => handleQuickQuestion(question)}>{question}</Button>))}</CardContent></Card>
                 <Card><CardHeader><CardTitle className="text-sm">System Status</CardTitle></CardHeader>
                   <CardContent className="space-y-2">
                     <div className="flex justify-between text-sm"><span>Model Configs:</span><Badge variant="outline">{configs.length}</Badge></div>
