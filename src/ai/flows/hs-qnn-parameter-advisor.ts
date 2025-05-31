@@ -95,7 +95,7 @@ Learning rate typically between 0.00001 and 0.1.
 
 Output your response in the specified JSON format.
 Ensure \`suggestedNextTrainingParameters\` only contains fields you are actively suggesting changes for, or a full set if you deem it necessary.
-If suggesting changes to array parameters like \`strengthParams\`, provide the full array with the changes.
+If suggesting changes to array parameters like \`momentumParams\`, \`strengthParams\`, or \`noiseParams\`, provide the full array of 6 floating-point values (each between 0.0 and 1.0) with the changes.
 `,
 });
 
