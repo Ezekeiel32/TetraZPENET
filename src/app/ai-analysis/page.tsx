@@ -22,8 +22,7 @@ interface ChatMessage {
   id: number;
   type: "user" | "ai";
   content: string;
-  suggestions?: string[];
-  followUp?: string[];
+  // Removed suggestions and followUp for simplified diagnostic version
   timestamp: Date;
   formattedTimestamp?: string;
 }
@@ -134,12 +133,9 @@ function AIAnalysisPageComponent() {
     setIsAnalyzing(true);
 
     try {
-      const contextSummary = `Current System State: ${configs.length} model configs, best accuracy ${aiInsights?.performance_assessment?.split("accuracy of ")[1]?.split("%")[0] || "N/A"}%. Recent metrics: ${metrics.length}. User Objective (if any from prev interactions): None explicitly set yet.`;
-
+      // Simplified input for diagnostic version
       const inputForAI: GetZpeChatResponseInput = {
           userPrompt: tempCurrentMessage,
-          systemContext: contextSummary,
-          previousMessages: chatMessages.slice(-5).map(m => ({role: m.type, content: m.content}))
       };
 
       const result = await getZpeChatResponseFlow(inputForAI); // Call the imported flow function
@@ -147,8 +143,7 @@ function AIAnalysisPageComponent() {
       const aiMessage: ChatMessage = {
         id: Date.now() + 1, type: "ai",
         content: result.response || "I'm having trouble. Could you rephrase?",
-        suggestions: result.suggestions || [],
-        followUp: result.followUpQuestions || [],
+        // suggestions and followUp removed for diagnostic version
         timestamp: new Date()
       };
       setChatMessages(prev => [...prev, aiMessage]);
@@ -241,18 +236,7 @@ function AIAnalysisPageComponent() {
                         <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                           <div className={`max-w-[80%] rounded-lg p-3 ${message.type === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                             <div className="text-sm whitespace-pre-wrap">{message.content}</div>
-                            {message.suggestions && message.suggestions.length > 0 && (
-                              <div className="mt-2 space-y-1">
-                                <div className="text-xs font-medium text-muted-foreground">Suggestions:</div>
-                                {message.suggestions.map((suggestion, idx) => (<div key={idx} className="text-xs bg-background/20 rounded p-1">• {suggestion}</div>))}
-                              </div>
-                            )}
-                            {message.followUp && message.followUp.length > 0 && (
-                              <div className="mt-2 space-y-1">
-                                <div className="text-xs font-medium text-muted-foreground">Follow-up questions:</div>
-                                {message.followUp.map((question, idx) => (<button key={idx} onClick={() => handleQuickQuestion(question)} className="text-xs bg-background/20 rounded p-1 hover:bg-background/30 transition-colors block w-full text-left">{question}</button>))}
-                              </div>
-                            )}
+                            {/* Suggestions and followUp UI removed for diagnostic version */}
                             <div className="text-xs opacity-70 mt-1 text-right">{message.formattedTimestamp || "..."}</div>
                           </div>
                         </div>
