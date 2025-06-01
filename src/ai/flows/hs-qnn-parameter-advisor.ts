@@ -20,9 +20,9 @@ const TrainingParametersSchemaInternal = z.object({
   batchSize: z.number().int().min(8).max(256),
   learningRate: z.number().min(0.00001).max(0.1),
   weightDecay: z.number().min(0).max(0.1),
-  momentumParams: z.array(z.number().min(0).max(1)).length(6),
-  strengthParams: z.array(z.number().min(0).max(1)).length(6),
-  noiseParams: z.array(z.number().min(0).max(1)).length(6),
+  momentumParams: z.array(z.number().min(0).max(1)).length(6, "Momentum parameters must have 6 values."),
+  strengthParams: z.array(z.number().min(0).max(1)).length(6, "Strength parameters must have 6 values."),
+  noiseParams: z.array(z.number().min(0).max(1)).length(6, "Noise parameters must have 6 values."),
   // couplingParams: z.array(z.number().min(0).max(1)).length(6), // Removed as per previous alignment
   // cycleLength: z.number().int().min(4).max(128), // Removed as per previous alignment
   quantumCircuitSize: z.number().int().min(4).max(64),
@@ -90,7 +90,7 @@ Your Task:
     *   You do not need to suggest changes for every single parameter. Only suggest parameters that make sense to change. Other parameters can be assumed to carry over from the previous job if not specified.
 3.  **Reasoning**: Provide a clear, step-by-step 'reasoning' for your suggestions. Explain how the previous ZPE state and the HNN objective led to your proposed parameter changes. For example, "The ZPE effect for layer 3 ({{{previousZpeEffects.[2]}}}) was low. To achieve the objective of 'higher ZPE excitation for layer 3', I suggest increasing strengthParams[2] from {{{previousTrainingParameters.strengthParams.[2]}}} to a slightly higher value..."
 
-Constraints for ZPE parameters (momentum, strength, noise): values are between 0.0 and 1.0.
+Constraints for ZPE parameters (momentum, strength, noise): values are between 0.0 and 1.0, and each should be an array of 6 values.
 Learning rate typically between 0.00001 and 0.1.
 
 Output your response in the specified JSON format.
