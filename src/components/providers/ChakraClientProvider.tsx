@@ -2,23 +2,16 @@
 "use client";
 
 import type { ReactNode } from 'react';
-import { CacheProvider } from '@chakra-ui/next-js';
-import { ChakraProvider } from '@chakra-ui/react';
+import dynamic from 'next/dynamic';
 
-// No explicit theme object is defined or passed;
-// ChakraProvider will use its internal default theme or one provided via context.
+const ClientSideChakraProviders = dynamic(() => import('./chakra'), {
+    ssr: false,
+});
 
 interface ChakraClientProviderProps {
   children: ReactNode;
 }
 
 export default function ChakraClientProvider({ children }: ChakraClientProviderProps) {
-  // Wrap ChakraProvider with CacheProvider for Next.js App Router compatibility
-  return (
-    <CacheProvider>
-      <ChakraProvider>
-        {children}
-      </ChakraProvider>
-    </CacheProvider>
-  );
+  return <ClientSideChakraProviders>{children}</ClientSideChakraProviders>;
 }
