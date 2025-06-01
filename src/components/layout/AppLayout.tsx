@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
@@ -5,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   PanelLeft, Home, Cpu, Zap, Atom, BarChart3, Settings, PlayCircle, Lightbulb, 
   Replace, Cog, Scaling, Box, Share2, Wrench, Moon, Sun, BrainCircuit, Globe, 
-  ScatterChart, IterationCw, Database, MessageSquare, Signal, SlidersHorizontal, Monitor, TrendingUp, Wand2 // Added Wand2
+  ScatterChart, IterationCw, Database, MessageSquare, Signal, SlidersHorizontal, Monitor, TrendingUp, Wand2, Rocket, ArrowRight // Added Rocket, ArrowRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -14,7 +15,7 @@ import { cn } from "@/lib/utils";
 const mainNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/train", label: "Train Model", icon: PlayCircle },
-  { href: "/model-configs", label: "Model Configs", icon: Settings },
+  { href: "/model-configs", label: "Model Configs", icon: Database }, // Changed icon to Database
   { href: "/configurations", label: "Job History", icon: BarChart3 }, 
   { href: "/performance", label: "Performance Analysis", icon: TrendingUp },
   { href: "/architecture", label: "Architecture", icon: Cpu },
@@ -23,7 +24,7 @@ const mainNavItems = [
 
 const advancedToolsNavItems = [
   { href: "/zpe-flow-analysis", label: "ZPE Flow Analysis", icon: SlidersHorizontal },
-  { href: "/zpe-flow", label: "HNN Advisor", icon: BrainCircuit }, // Kept old /zpe-flow as HNN Advisor
+  { href: "/zpe-flow", label: "HNN Advisor", icon: BrainCircuit },
   { href: "/quantum-noise", label: "Quantum Noise", icon: Atom },
   { href: "/rf-generator", label: "RF Generator", icon: Signal },
   { href: "/ai-analysis", label: "AI Analysis Chat", icon: MessageSquare },
@@ -36,6 +37,7 @@ const visNavItems = [
 ];
 
 const aiFlowsNavItems = [
+  { href: "/ai", label: "AI Flows Hub", icon: Rocket }, // Added a general hub link
   { href: "/ai/implement-zpe", label: "Simulate ZPE", icon: Lightbulb },
   { href: "/ai/approximate-zpe", label: "Approximate Flow", icon: Replace },
   { href: "/ai/adapt-zpe", label: "Adapt ZPE", icon: Cog },
@@ -43,7 +45,7 @@ const aiFlowsNavItems = [
   { href: "/ai/quantize-model", label: "Quantize Model", icon: Box },
   { href: "/ai/extract-components", label: "Extract Components", icon: Share2 },
   { href: "/ai/configure-model", label: "Configure Model", icon: Wrench },
-  { href: "/ai/invoke-llm", label: "Invoke LLM", icon: Wand2 }, // Added new generic LLM invoker
+  { href: "/ai/invoke-llm", label: "Invoke Generic LLM", icon: Wand2 },
 ];
 
 
@@ -58,7 +60,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       if (storedTheme) {
         setIsDarkMode(storedTheme === "dark");
       } else {
-        // If no theme in localStorage, check system preference
         const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
         setIsDarkMode(prefersDark);
       }
@@ -95,7 +96,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           href={item.href}
           className={cn(
             "flex items-center px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-            (pathname === item.href || (pathname.startsWith(item.href + '/') && item.href !== "/dashboard" && item.href !== "/")) || (pathname === "/" && item.href === "/dashboard")
+            (pathname === item.href || (pathname.startsWith(item.href + '/') && item.href !== "/dashboard" && item.href !== "/" && item.href !== "/ai")) || // Adjusted condition for hub pages
+             (pathname === "/" && item.href === "/dashboard") || (pathname === "/ai" && item.href === "/ai")
               ? "bg-primary/10 text-primary"
               : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           )}
@@ -111,8 +113,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-4 border-b border-border">
         <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold text-primary" onClick={() => setIsMobileNavOpen(false)}>
-          <Atom className="h-6 w-6" />
-          <span>TetraZPE.com</span>
+          <Zap className="h-6 w-6" /> {/* Changed icon to Zap for main brand */}
+          <span>TetraZPE</span>
         </Link>
       </div>
       <nav className="flex-1 px-2 py-4 space-y-0 overflow-y-auto">
@@ -149,8 +151,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </SheetContent>
           </Sheet>
           <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold text-primary md:hidden" onClick={() => setIsMobileNavOpen(false)}>
-            <Atom className="h-6 w-6" />
-            <span className="sr-only">TetraZPE.com</span>
+            <Zap className="h-6 w-6" /> {/* Changed icon */}
+            <span className="sr-only">TetraZPE</span>
           </Link>
           <div className="ml-auto">
              <Button variant="ghost" size="icon" onClick={toggleDarkMode} className="md:hidden">
@@ -159,7 +161,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </Button>
           </div>
         </header>
-        <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6 overflow-auto">
+        <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6 overflow-auto bg-gradient-to-br from-background to-muted/30"> {/* Added subtle gradient to main */}
           {children}
         </main>
       </div>

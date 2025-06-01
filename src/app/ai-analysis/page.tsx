@@ -206,9 +206,16 @@ function AIAnalysisPageComponent() {
         )
       );
     }
-    // Auto-scroll chat
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    // Auto-scroll chat with a slight delay to allow DOM to update
+    const timeoutId = setTimeout(() => {
+      if (chatContainerRef.current) {
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      }
+    }, 100); // Adjust delay if needed
+
+    // Clean up the timeout if messages change again or component unmounts
+    return () => {
+      clearTimeout(timeoutId);
     }
   }, [chatMessages]);
 
@@ -388,8 +395,7 @@ function AIAnalysisPageComponent() {
                   <CardDescription>Ask questions about your model performance, get optimization advice, or explore quantum effects</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <ScrollArea className="h-[500px] p-4" ref={chatContainerRef}>
-                    <div className="space-y-4">
+                  <div className="h-[500px] p-4 overflow-y-auto" ref={chatContainerRef}>
                       {chatMessages.map((message) => (
                         <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                           <div className={`max-w-[80%] rounded-lg p-3 ${message.type === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
@@ -399,8 +405,7 @@ function AIAnalysisPageComponent() {
                         </div>
                       ))}
                       {isAnalyzing && (<div className="flex justify-start"><div className="bg-muted rounded-lg p-3"><div className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /><span className="text-sm">AI is analyzing...</span></div></div></div>)}
-                    </div>
-                  </ScrollArea>
+                  </div>
                   <div className="border-t p-4">
                     <div className="flex gap-2">
                       <Textarea placeholder="Ask about model performance, optimization strategies, quantum effects, or dataset characteristics..." value={currentMessage} onChange={(e) => setCurrentMessage(e.target.value)} onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }}} className="flex-1" rows={2}/>
