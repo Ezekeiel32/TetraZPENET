@@ -245,8 +245,8 @@ function AIAnalysisPageComponent() {
       toast({ title: "Invalid Job", description: "Please select a 'completed' job for HNN advice.", variant: "destructive" });
       return;
     }
-     if (!selectedPreviousJobDetails.parameters) {
-      toast({ title: "Error", description: "Previous job details are missing parameters.", variant: "destructive" });
+    if (!selectedPreviousJobDetails.parameters) {
+      toast({ title: "Error", description: "Selected job is missing training parameters.", variant: "destructive" });
       return;
     }
 
@@ -254,19 +254,32 @@ function AIAnalysisPageComponent() {
     setSpecificAdviceError(null);
     setSpecificAdviceResult(null);
     
-    // Validate the parameters of the selected previous job
-    const validationResult = TrainingParametersSchema.safeParse(selectedPreviousJobDetails.parameters);
-
-    if (!validationResult.success) {
-        console.error("Validation error for previousTrainingParameters:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.errors.map(err => `${err.path.join('.') || 'parameter'}: ${err.message}`).join('; ');
-        setSpecificAdviceError("Previous job parameters are invalid or incomplete. Issues: " + errorMessages);
-        toast({ title: "Parameter Validation Failed", description: "Details: " + errorMessages, variant: "destructive", duration: 7000 });
+    let validatedPreviousParams: TrainingParameters;
+    try {
+        const jobParams = selectedPreviousJobDetails.parameters;
+        const paramsToValidate = {
+            totalEpochs: jobParams.totalEpochs || 0,
+            batchSize: jobParams.batchSize || 0,
+            learningRate: jobParams.learningRate || 0,
+            weightDecay: jobParams.weightDecay || 0,
+            momentumParams: jobParams.momentumParams || Array(6).fill(0.8),
+            strengthParams: jobParams.strengthParams || Array(6).fill(0.4),
+            noiseParams: jobParams.noiseParams || Array(6).fill(0.2),
+            quantumCircuitSize: jobParams.quantumCircuitSize || 0,
+            labelSmoothing: jobParams.labelSmoothing || 0,
+            quantumMode: jobParams.quantumMode || false,
+            modelName: jobParams.modelName || "DefaultModel",
+            baseConfigId: jobParams.baseConfigId === null ? undefined : jobParams.baseConfigId,
+        };
+        validatedPreviousParams = TrainingParametersSchema.parse(paramsToValidate);
+    } catch (validationError: any) {
+        console.error("Validation error for previousTrainingParameters:", validationError);
+        const errorDetails = validationError.errors?.map((err: any) => `${err.path.join('.') || 'parameter'}: ${err.message}`).join('; ') || validationError.message;
+        setSpecificAdviceError("Previous job parameters are not in the expected format. Details: " + errorDetails);
+        toast({ title: "Parameter Mismatch", description: "Previous job parameters invalid. " + errorDetails, variant: "destructive", duration: 7000 });
         setIsLoadingSpecificAdvice(false);
         return;
     }
-
-    const validatedPreviousParams = validationResult.data;
 
     const inputForAI: HSQNNAdvisorInput = {
       previousJobId: selectedPreviousJobDetails.job_id,
@@ -290,7 +303,7 @@ function AIAnalysisPageComponent() {
   const handleLoadSuggestionInTrainer = async (suggestionParams: Partial<TrainingParameters> | undefined) => {
     if (!suggestionParams) { toast({ title: "Error", description: "No parameters provided for suggestion.", variant: "destructive" }); return; }
     
-    const baseParamsForRouter = selectedPreviousJobDetails ? { ...selectedPreviousJobDetails.parameters } : {};
+    const baseParamsForRouter = selectedPreviousJobDetails?.parameters ? { ...selectedPreviousJobDetails.parameters } : {};
     
     const combinedParamsForRouter: Record<string, any> = { ...baseParamsForRouter, ...suggestionParams }; 
     
@@ -553,4 +566,3 @@ export default function AIAnalysisPage() {
   );
 }
 
-    
