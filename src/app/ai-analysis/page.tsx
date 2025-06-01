@@ -42,7 +42,7 @@ const TrainingParametersSchema = z.object({
   labelSmoothing: z.number().min(0).max(0.5),
   quantumMode: z.boolean(),
   modelName: z.string().min(3, "Model name must be at least 3 characters"),
-  baseConfigId: z.string().nullable().optional(), // Allow null
+  baseConfigId: z.string().nullable().optional(),
 });
 
 
@@ -249,34 +249,19 @@ function AIAnalysisPageComponent() {
     setSpecificAdviceError(null);
     setSpecificAdviceResult(null);
     
-    let validatedPreviousParams: TrainingParameters;
-    try {
-        // Directly use selectedPreviousJobDetails.parameters if they are expected to be complete.
-        // Add default fallbacks for any potentially missing fields to satisfy the schema.
-        const paramsToValidate = {
-            totalEpochs: selectedPreviousJobDetails.parameters.totalEpochs || 0,
-            batchSize: selectedPreviousJobDetails.parameters.batchSize || 0,
-            learningRate: selectedPreviousJobDetails.parameters.learningRate || 0,
-            weightDecay: selectedPreviousJobDetails.parameters.weightDecay || 0,
-            momentumParams: selectedPreviousJobDetails.parameters.momentumParams || Array(6).fill(0.8),
-            strengthParams: selectedPreviousJobDetails.parameters.strengthParams || Array(6).fill(0.4),
-            noiseParams: selectedPreviousJobDetails.parameters.noiseParams || Array(6).fill(0.2),
-            quantumCircuitSize: selectedPreviousJobDetails.parameters.quantumCircuitSize || 0,
-            labelSmoothing: selectedPreviousJobDetails.parameters.labelSmoothing || 0,
-            quantumMode: selectedPreviousJobDetails.parameters.quantumMode || false,
-            modelName: selectedPreviousJobDetails.parameters.modelName || "DefaultModel",
-            baseConfigId: selectedPreviousJobDetails.parameters.baseConfigId === null ? undefined : selectedPreviousJobDetails.parameters.baseConfigId,
-        };
-        validatedPreviousParams = TrainingParametersSchema.parse(paramsToValidate);
+    // Validate the parameters of the selected previous job
+    const validationResult = TrainingParametersSchema.safeParse(selectedPreviousJobDetails.parameters);
 
-    } catch (validationError: any) {
-        console.error("Validation error for previousTrainingParameters:", validationError);
-        const errorDetails = validationError.errors?.map((err: any) => `${err.path.join('.')}: ${err.message}`).join('; ') || validationError.message;
-        setSpecificAdviceError("Previous job parameters are not in the expected format. " + errorDetails);
-        toast({ title: "Parameter Mismatch", description: "Previous job parameters invalid. " + errorDetails, variant: "destructive" });
+    if (!validationResult.success) {
+        console.error("Validation error for previousTrainingParameters:", validationResult.error);
+        const errorDetails = validationResult.error.errors?.map((err: any) => `${err.path.join('.')}: ${err.message}`).join('; ') || "Unknown validation error.";
+        setSpecificAdviceError("Previous job parameters are invalid or incomplete. " + errorDetails);
+        toast({ title: "Parameter Validation Failed", description: "Previous job parameters are invalid. " + errorDetails, variant: "destructive" });
         setIsLoadingSpecificAdvice(false);
         return;
     }
+
+    const validatedPreviousParams = validationResult.data;
 
     const inputForAI: HSQNNAdvisorInput = {
       previousJobId: selectedPreviousJobDetails.job_id,
@@ -563,3 +548,5 @@ export default function AIAnalysisPage() {
   );
 }
 
+
+    
