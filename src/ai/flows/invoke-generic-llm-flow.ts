@@ -36,8 +36,28 @@ const invokeGenericLlmFlow = ai.defineFlow(
     const llmResponse = await ai.generate({
       prompt: input.prompt,
       // You could add history or context here if needed for a more conversational generic invoker
+      config: {
+        safetySettings: [
+          {
+            category: 'HARM_CATEGORY_HATE_SPEECH',
+            threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+          },
+          {
+            category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+            threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+          },
+          {
+            category: 'HARM_CATEGORY_HARASSMENT',
+            threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+          },
+          {
+            category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+            threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+          },
+        ],
+      }
     });
 
-    return { response: llmResponse.text() };
+    return { response: llmResponse.text };
   }
 );
