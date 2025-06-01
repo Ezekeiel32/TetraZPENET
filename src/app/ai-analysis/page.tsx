@@ -245,6 +245,11 @@ function AIAnalysisPageComponent() {
       toast({ title: "Invalid Job", description: "Please select a 'completed' job for HNN advice.", variant: "destructive" });
       return;
     }
+     if (!selectedPreviousJobDetails.parameters) {
+      toast({ title: "Error", description: "Previous job details are missing parameters.", variant: "destructive" });
+      return;
+    }
+
     setIsLoadingSpecificAdvice(true);
     setSpecificAdviceError(null);
     setSpecificAdviceResult(null);
@@ -253,10 +258,10 @@ function AIAnalysisPageComponent() {
     const validationResult = TrainingParametersSchema.safeParse(selectedPreviousJobDetails.parameters);
 
     if (!validationResult.success) {
-        console.error("Validation error for previousTrainingParameters:", validationResult.error);
-        const errorDetails = validationResult.error.errors?.map((err: any) => `${err.path.join('.')}: ${err.message}`).join('; ') || "Unknown validation error.";
-        setSpecificAdviceError("Previous job parameters are invalid or incomplete. " + errorDetails);
-        toast({ title: "Parameter Validation Failed", description: "Previous job parameters are invalid. " + errorDetails, variant: "destructive" });
+        console.error("Validation error for previousTrainingParameters:", validationResult.error.flatten());
+        const errorMessages = validationResult.error.errors.map(err => `${err.path.join('.') || 'parameter'}: ${err.message}`).join('; ');
+        setSpecificAdviceError("Previous job parameters are invalid or incomplete. Issues: " + errorMessages);
+        toast({ title: "Parameter Validation Failed", description: "Details: " + errorMessages, variant: "destructive", duration: 7000 });
         setIsLoadingSpecificAdvice(false);
         return;
     }
@@ -547,6 +552,5 @@ export default function AIAnalysisPage() {
     </Suspense>
   );
 }
-
 
     
