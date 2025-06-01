@@ -10,11 +10,14 @@ const ChakraProviderClient = dynamic(
   { ssr: false }
 );
 
+// Pass an empty object for the theme, relying on Chakra's default theme
+const theme = {};
+
 interface ChakraClientProviderProps {
   children: ReactNode;
 }
 
 export default function ChakraClientProvider({ children }: ChakraClientProviderProps) {
   // ChakraProviderClient will only render on the client-side
-  return <ChakraProviderClient>{children}</ChakraProviderClient>;
+  return <ChakraProviderClient theme={theme}>{children}</ChakraProviderClient>;
 }
