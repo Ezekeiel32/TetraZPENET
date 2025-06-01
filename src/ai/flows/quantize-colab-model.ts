@@ -33,6 +33,7 @@ export async function quantizeColabModel(input: QuantizeColabModelInput): Promis
 
 const prompt = ai.definePrompt({
   name: 'quantizeColabModelPrompt',
+  model: 'googleai/gemini-2.0-flash',
   input: {schema: QuantizeColabModelInputSchema},
   output: {schema: QuantizeColabModelOutputSchema},
   prompt: `You are an expert in PyTorch model quantization. Given the following Python code from a Colab notebook that defines and trains a PyTorch model, and the path to the saved model checkpoint, generate code to quantize the model. Also, generate a report summarizing the quantization process and its results, including the estimated size reduction.
@@ -67,3 +68,4 @@ const quantizeColabModelFlow = ai.defineFlow(
     return output!;
   }
 );
+

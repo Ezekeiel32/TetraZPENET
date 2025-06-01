@@ -28,6 +28,7 @@ export async function showScaledOutput(input: ShowScaledOutputInput): Promise<Sh
 
 const prompt = ai.definePrompt({
   name: 'showScaledOutputPrompt',
+  model: 'googleai/gemini-2.0-flash',
   input: {schema: ShowScaledOutputInputSchema},
   output: {schema: ShowScaledOutputOutputSchema},
   prompt: `You are a quantum computing expert. Given the number of qubits and ZPE strength, simulate a pseudo-quantum circuit.  Scale the output values to the range [0, 1].
@@ -66,3 +67,4 @@ const showScaledOutputFlow = ai.defineFlow(
     return {scaledOutput};
   }
 );
+

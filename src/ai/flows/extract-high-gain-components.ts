@@ -36,6 +36,7 @@ export async function extractHighGainComponents(input: ExtractHighGainComponents
 
 const prompt = ai.definePrompt({
   name: 'extractHighGainComponentsPrompt',
+  model: 'googleai/gemini-2.0-flash',
   input: {schema: ExtractHighGainComponentsInputSchema},
   output: {schema: ExtractHighGainComponentsOutputSchema},
   prompt: `You are an AI researcher specializing in quantum machine learning. Your task is to analyze a given model architecture and performance metrics to extract high-gain components that are suitable for a specific quantum application.
@@ -66,3 +67,4 @@ const extractHighGainComponentsFlow = ai.defineFlow(
     return output!;
   }
 );
+

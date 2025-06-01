@@ -90,7 +90,7 @@ Your Task:
     *   You do not need to suggest changes for every single parameter. Only suggest parameters that make sense to change. Other parameters can be assumed to carry over from the previous job if not specified.
 3.  **Reasoning**: Provide a clear, step-by-step 'reasoning' for your suggestions. Explain how the previous ZPE state and the HNN objective led to your proposed parameter changes. For example, "The ZPE effect for layer 3 ({{{previousZpeEffects.[2]}}}) was low. To achieve the objective of 'higher ZPE excitation for layer 3', I suggest increasing strengthParams[2] from {{{previousTrainingParameters.strengthParams.[2]}}} to a slightly higher value..."
 
-Constraints for ZPE parameters (momentum, strength, noise): values are between 0.0 and 1.0, and each should be an array of 6 values.
+Constraints for ZPE parameters (\`momentumParams\`, \`strengthParams\`, \`noiseParams\`): values are between 0.0 and 1.0, and each must be an array of 6 values. You *must* include all three of these parameters in your \`suggestedNextTrainingParameters\` object, even if you only suggest changes to some of the values within the arrays.
 Learning rate typically between 0.00001 and 0.1.
 
 Output your response in the specified JSON format.

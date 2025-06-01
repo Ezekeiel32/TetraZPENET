@@ -23,6 +23,7 @@ export async function getZpeChatResponseFlow(input: GetZpeChatResponseInput): Pr
 // Simplified Internal Genkit Prompt Definition
 const simplePrompt = ai.definePrompt({
   name: 'simpleChatPrompt',
+  model: 'googleai/gemini-2.0-flash',
   input: { schema: SimpleChatInputSchema },
   output: { schema: SimpleChatOutputSchema },
   prompt: `User asks: {{{userPrompt}}}. Respond very simply.`,
@@ -44,3 +45,4 @@ const simpleChatGenkitFlow = ai.defineFlow(
     return output;
   }
 );
+

@@ -39,6 +39,7 @@ export async function implementZPESimulation(
 
 const prompt = ai.definePrompt({
   name: 'implementZPESimulationPrompt',
+  model: 'googleai/gemini-2.0-flash',
   input: {schema: ImplementZPESimulationInputSchema},
   output: {schema: ImplementZPESimulationOutputSchema},
   prompt: `You are an AI researcher specializing in simulating the effects of zero-point energy (ZPE) on neural network training. Given the base accuracy, epoch ratio, and ZPE parameters, your goal is to calculate the final simulated accuracy and ZPE effects for each layer.
@@ -101,3 +102,4 @@ const implementZPESimulationFlow = ai.defineFlow(
     return {accuracy, zpeEffects};
   }
 );
+

@@ -66,6 +66,7 @@ export async function getInitialZpeAnalysis(input: GetInitialZpeAnalysisInput): 
 
 const prompt = ai.definePrompt({
   name: 'getInitialZpeAnalysisPrompt',
+  model: 'googleai/gemini-2.0-flash',
   input: { schema: GetInitialZpeAnalysisInputSchema },
   output: { schema: GetInitialZpeAnalysisOutputSchema },
   prompt: `You are an expert AI research assistant specializing in Zero-Point Energy (ZPE) enhanced Quantum Neural Networks.
@@ -106,3 +107,4 @@ const getInitialZpeAnalysisGenkitFlow = ai.defineFlow(
     return output;
   }
 );
+

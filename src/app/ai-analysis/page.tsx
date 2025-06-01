@@ -346,18 +346,33 @@ function AIAnalysisPageComponent() {
   const ParamList = ({ params, title }: { params: Partial<TrainingParameters> | undefined, title: string }) => {
     if (!params || Object.keys(params).length === 0) {
       let message = `${title}: No parameters to display or not applicable.`;
-       if (title === "Suggested Changes" && selectedPreviousJobDetails && (!params || Object.keys(params).length === 0)) {
+      if (title === "Suggested Changes" && selectedPreviousJobDetails && (!params || Object.keys(params).length === 0)) {
         message = `${title}: AI suggests inheriting most parameters. Model Name will be updated. BaseConfigID will link to previous job.`;
       }
       return <p className="text-sm text-muted-foreground italic">{message}</p>;
     }
-    const entries = Object.entries(params);
+
+    // Combine suggested params with previous job params, ensuring momentum, strength, and noise are always present for display
+    const displayParams: Partial<TrainingParameters> = { ...params };
+
+    if (selectedPreviousJobDetails?.parameters) {
+      if (displayParams.momentumParams === undefined) displayParams.momentumParams = selectedPreviousJobDetails.parameters.momentumParams;
+      if (displayParams.strengthParams === undefined) displayParams.strengthParams = selectedPreviousJobDetails.parameters.strengthParams;
+      if (displayParams.noiseParams === undefined) displayParams.noiseParams = selectedPreviousJobDetails.parameters.noiseParams;
+    }
+
+    const entries = Object.entries(displayParams);
+
     return (
       <div className="space-y-1 text-sm">
          <h4 className="font-semibold text-muted-foreground">{title}:</h4>
          <ul className="list-disc list-inside pl-4 space-y-1 bg-background/50 p-2 rounded">
             {entries.map(([key, value]) => {
               if (value === undefined || value === null) return null;
+              let displayValue = String(value);
+              if (Array.isArray(value)) {
+                displayValue = `[${value.map(v => typeof v === 'number' ? v.toFixed(4) : String(v)).join(', ')}]`;
+              }
               return (
                 <li key={key}>
                   <span className="font-medium">{key}:</span>{' '}
