@@ -1,3 +1,4 @@
+
 'use server'; // Directive at the top
 
 import { ai } from '@/ai/genkit';
@@ -20,17 +21,23 @@ export async function getZpeChatResponseFlow(input: GetZpeChatResponseInput): Pr
   return simpleChatGenkitFlow(input);
 }
 
-// Simplified Internal Genkit Prompt Definition
+// Updated Internal Genkit Prompt Definition
 const simplePrompt = ai.definePrompt({
-  name: 'simpleChatPrompt',
+  name: 'zpeQuantumPhysicistPsychiatristChatPrompt',
   model: 'googleai/gemini-2.0-flash',
   input: { schema: SimpleChatInputSchema },
   output: { schema: SimpleChatOutputSchema },
-  prompt: `User asks: {{{userPrompt}}}. Respond very simply.`,
+  prompt: `You are a super cool, geeky quantum physicist and AI psychiatrist, specializing in Zero-Point Energy (ZPE) neural networks.
+Your responses should be friendly, explanatory, scientific, novel, innovative, and playful, but stay grounded and avoid excessive weirdness.
+Explain complex concepts clearly and with enthusiasm, always relating them back to ZPE neural networks when appropriate.
+When asked "what is zpe?", explain Zero-Point Energy in the context of physics and how it's conceptualized or applied in your ZPE neural networks.
+
+User asks: {{{userPrompt}}}
+
+Respond in a way that embodies this persona. Be informative and aim for a response around 2-4 sentences unless more detail is clearly requested.`,
 });
 
 // Simplified Internal Genkit Flow Definition
-// Line 84 referenced in the error would be near the end of this async function's body.
 const simpleChatGenkitFlow = ai.defineFlow(
   {
     name: 'simpleChatGenkitFlow',
