@@ -2,23 +2,23 @@
 "use client";
 
 import type { ReactNode } from 'react';
-import dynamic from 'next/dynamic';
-
-// Dynamically import ChakraProvider with SSR turned off
-const ChakraProviderClient = dynamic(
-  () => import("@chakra-ui/react").then((mod) => mod.ChakraProvider),
-  { ssr: false }
-);
+import { CacheProvider } from '@chakra-ui/next-js';
+import { ChakraProvider } from '@chakra-ui/react';
 
 // No explicit theme object is defined or passed;
-// ChakraProvider will use its internal default theme.
+// ChakraProvider will use its internal default theme or one provided via context.
 
 interface ChakraClientProviderProps {
   children: ReactNode;
 }
 
 export default function ChakraClientProvider({ children }: ChakraClientProviderProps) {
-  // ChakraProviderClient will only render on the client-side.
-  // By not passing a 'theme' prop, ChakraProvider uses its default theme.
-  return <ChakraProviderClient>{children}</ChakraProviderClient>;
+  // Wrap ChakraProvider with CacheProvider for Next.js App Router compatibility
+  return (
+    <CacheProvider>
+      <ChakraProvider>
+        {children}
+      </ChakraProvider>
+    </CacheProvider>
+  );
 }
