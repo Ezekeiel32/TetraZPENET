@@ -59,9 +59,7 @@ export default function Dashboard() {
         <CardContent className="space-y-4">
           <div className="bg-muted/50 p-6 rounded-lg border">
             <h3 className="text-xl font-semibold mb-3 flex items-center gap-2"><Atom className="h-6 w-6 text-accent"/>Welcome to ZPE Net!</h3>
-            <p className="text-sm text-foreground/80 leading-relaxed">
-              Dive into the quantum realm with ZPE Net, where we're revolutionizing AI! By encoding ZPE's underlying principles through binary progressions, we've engineered neural networks that exhibit remarkable adaptability and learn from true randomness. Envision AI models capable of achieving up to 99.99% accuracy. This is the dawn of ZPE-driven intelligence! We're diving deep into the quantum vacuum, harnessing the subtle hum of Zero-Point Energy. Zero-Point Energy, or ZPE, is the mind-bending, floor-level energy humming throughout the quantum world, even in empty space! Zero-Point Energy, or ZPE, refers to the lowest possible energy state a quantum mechanical system can possess, even at absolute zero temperature. By encoding information within ZPE, leveraging novel computational methods like advanced binary progression encodings, ZPE neural networks may unlock exponentially greater computational power. Imagine networks that learn and adapt with an elegance born from the very fabric of reality – it's not just a dream, it's the future of intelligent computation!
-            </p>
+            <p className="text-sm text-foreground/80 leading-relaxed"></p>
           </div>
 
           <Card className="bg-gradient-to-br from-card to-accent/5 border-accent/30">

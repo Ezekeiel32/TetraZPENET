@@ -13,7 +13,8 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 const mainNavItems = [
-  { href: "/dashboard", label: "Dashboard", icon: Home },
+  { href: "/introduction", label: "Introduction", icon: ArrowRight },
+ { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/train", label: "Train Model", icon: PlayCircle },
   { href: "/model-configs", label: "Model Configs", icon: Database }, // Changed icon to Database
   { href: "/configurations", label: "Job History", icon: BarChart3 }, 

@@ -1,8 +1,10 @@
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AppLayout from "@/components/layout/AppLayout";
 import { Toaster } from "@/components/ui/toaster";
+import ChakraClientProvider from "@/components/providers/ChakraClientProvider"; // Import the new client provider
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,8 +30,10 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <head />
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
-        <AppLayout>{children}</AppLayout>
-        <Toaster />
+        <ChakraClientProvider> {/* Use the new client provider here */}
+          <AppLayout>{children}</AppLayout>
+          <Toaster />
+        </ChakraClientProvider>
       </body>
     </html>
   );
