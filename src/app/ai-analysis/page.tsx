@@ -1,6 +1,6 @@
 
 "use client";
-import React, { useState, useEffect, Suspense, useCallback } from "react";
+import React, { useState, useEffect, Suspense, useCallback, useRef } from "react";
 import type { ModelConfig, PerformanceMetric } from "@/types/entities"; // Using existing types
 import { getInitialZpeAnalysis, type GetInitialZpeAnalysisInput, type GetInitialZpeAnalysisOutput } from "@/ai/flows/get-initial-zpe-analysis-flow"; // Corrected import name
 import { getZpeChatResponseFlow, type GetZpeChatResponseInput, type GetZpeChatResponseOutput } from "@/ai/flows/get-zpe-chat-response-flow";
@@ -60,6 +60,7 @@ function AIAnalysisPageComponent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
   const [configs, setConfigs] = useState<ModelConfig[]>([]);
   const [metrics, setMetrics] = useState<PerformanceMetric[]>([]);
@@ -107,7 +108,7 @@ function AIAnalysisPageComponent() {
     } finally {
       setIsLoadingSpecificAdvice(false);
     }
-  }, [selectedJobIdForAdvice]); // Added selectedJobIdForAdvice
+  }, [selectedJobIdForAdvice]); 
 
   useEffect(() => {
     fetchCompletedJobsList();
@@ -205,6 +206,10 @@ function AIAnalysisPageComponent() {
         )
       );
     }
+    // Auto-scroll chat
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
   }, [chatMessages]);
 
   const handleSendMessage = async () => {
@@ -241,46 +246,32 @@ function AIAnalysisPageComponent() {
       toast({ title: "Error", description: "Previous job details not loaded. Please select a job.", variant: "destructive" });
       return;
     }
-    if (selectedPreviousJobDetails.status !== 'completed') {
-      toast({ title: "Invalid Job", description: "Please select a 'completed' job for HNN advice.", variant: "destructive" });
-      return;
-    }
     if (!selectedPreviousJobDetails.parameters) {
       toast({ title: "Error", description: "Selected job is missing training parameters.", variant: "destructive" });
       return;
     }
-
+    if (selectedPreviousJobDetails.status !== 'completed') {
+      toast({ title: "Invalid Job", description: "Please select a 'completed' job for HNN advice.", variant: "destructive" });
+      return;
+    }
+    
     setIsLoadingSpecificAdvice(true);
     setSpecificAdviceError(null);
     setSpecificAdviceResult(null);
     
-    let validatedPreviousParams: TrainingParameters;
-    try {
-        const jobParams = selectedPreviousJobDetails.parameters;
-        const paramsToValidate = {
-            totalEpochs: jobParams.totalEpochs || 0,
-            batchSize: jobParams.batchSize || 0,
-            learningRate: jobParams.learningRate || 0,
-            weightDecay: jobParams.weightDecay || 0,
-            momentumParams: jobParams.momentumParams || Array(6).fill(0.8),
-            strengthParams: jobParams.strengthParams || Array(6).fill(0.4),
-            noiseParams: jobParams.noiseParams || Array(6).fill(0.2),
-            quantumCircuitSize: jobParams.quantumCircuitSize || 0,
-            labelSmoothing: jobParams.labelSmoothing || 0,
-            quantumMode: jobParams.quantumMode || false,
-            modelName: jobParams.modelName || "DefaultModel",
-            baseConfigId: jobParams.baseConfigId === null ? undefined : jobParams.baseConfigId,
-        };
-        validatedPreviousParams = TrainingParametersSchema.parse(paramsToValidate);
-    } catch (validationError: any) {
-        console.error("Validation error for previousTrainingParameters:", validationError);
-        const errorDetails = validationError.errors?.map((err: any) => `${err.path.join('.') || 'parameter'}: ${err.message}`).join('; ') || validationError.message;
-        setSpecificAdviceError("Previous job parameters are not in the expected format. Details: " + errorDetails);
-        toast({ title: "Parameter Mismatch", description: "Previous job parameters invalid. " + errorDetails, variant: "destructive", duration: 7000 });
+    const validationResult = TrainingParametersSchema.safeParse(selectedPreviousJobDetails.parameters);
+
+    if (!validationResult.success) {
+        console.error("Validation error for previousTrainingParameters:", validationResult.error);
+        const errorDetails = validationResult.error.errors?.map((err) => `${err.path.join('.') || 'parameter'}: ${err.message}`).join('; ') || "Unknown validation error.";
+        setSpecificAdviceError("Previous job parameters are invalid or incomplete. Details: " + errorDetails);
+        toast({ title: "Parameter Validation Failed", description: "Previous job parameters are invalid. " + errorDetails, variant: "destructive", duration: 7000 });
         setIsLoadingSpecificAdvice(false);
         return;
     }
 
+    const validatedPreviousParams = validationResult.data;
+    
     const inputForAI: HSQNNAdvisorInput = {
       previousJobId: selectedPreviousJobDetails.job_id,
       previousZpeEffects: selectedPreviousJobDetails.zpe_effects || Array(6).fill(0), 
@@ -346,33 +337,18 @@ function AIAnalysisPageComponent() {
   const ParamList = ({ params, title }: { params: Partial<TrainingParameters> | undefined, title: string }) => {
     if (!params || Object.keys(params).length === 0) {
       let message = `${title}: No parameters to display or not applicable.`;
-      if (title === "Suggested Changes" && selectedPreviousJobDetails && (!params || Object.keys(params).length === 0)) {
+       if (title === "Suggested Changes" && selectedPreviousJobDetails && (!params || Object.keys(params).length === 0)) {
         message = `${title}: AI suggests inheriting most parameters. Model Name will be updated. BaseConfigID will link to previous job.`;
       }
       return <p className="text-sm text-muted-foreground italic">{message}</p>;
     }
-
-    // Combine suggested params with previous job params, ensuring momentum, strength, and noise are always present for display
-    const displayParams: Partial<TrainingParameters> = { ...params };
-
-    if (selectedPreviousJobDetails?.parameters) {
-      if (displayParams.momentumParams === undefined) displayParams.momentumParams = selectedPreviousJobDetails.parameters.momentumParams;
-      if (displayParams.strengthParams === undefined) displayParams.strengthParams = selectedPreviousJobDetails.parameters.strengthParams;
-      if (displayParams.noiseParams === undefined) displayParams.noiseParams = selectedPreviousJobDetails.parameters.noiseParams;
-    }
-
-    const entries = Object.entries(displayParams);
-
+    const entries = Object.entries(params);
     return (
       <div className="space-y-1 text-sm">
          <h4 className="font-semibold text-muted-foreground">{title}:</h4>
          <ul className="list-disc list-inside pl-4 space-y-1 bg-background/50 p-2 rounded">
             {entries.map(([key, value]) => {
               if (value === undefined || value === null) return null;
-              let displayValue = String(value);
-              if (Array.isArray(value)) {
-                displayValue = `[${value.map(v => typeof v === 'number' ? v.toFixed(4) : String(v)).join(', ')}]`;
-              }
               return (
                 <li key={key}>
                   <span className="font-medium">{key}:</span>{' '}
@@ -412,7 +388,7 @@ function AIAnalysisPageComponent() {
                   <CardDescription>Ask questions about your model performance, get optimization advice, or explore quantum effects</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <ScrollArea className="h-[500px] p-4">
+                  <ScrollArea className="h-[500px] p-4" ref={chatContainerRef}>
                     <div className="space-y-4">
                       {chatMessages.map((message) => (
                         <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
