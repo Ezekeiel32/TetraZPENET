@@ -6,6 +6,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import { Toaster } from "@/components/ui/toaster";
 // Import the new dynamic wrapper client component
 import ChakraLayoutWrapper from "@/components/layout/ChakraLayoutWrapper";
+import { ColorModeScript } from "@chakra-ui/react"; // Import ColorModeScript
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,7 +31,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head />
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
+      <body>
+        {/* Add ColorModeScript here */}
+        <ColorModeScript initialColorMode="dark" />
         {/* Use the new ChakraLayoutWrapper component */}
         <ChakraLayoutWrapper>
           <AppLayout>{children}</AppLayout>
