@@ -1,13 +1,7 @@
-// src/components/layout/ChakraLayoutWrapper.tsx
 "use client";
 
-import dynamic from "next/dynamic";
+import { ChakraProviders } from "@/components/providers/chakra-client";
 import React from "react";
-
-const ChakraProviders = dynamic(
-  () => import("@/components/providers/chakra-client"),
-  { ssr: false }
-);
 
 interface ChakraLayoutWrapperProps {
   children: React.ReactNode;

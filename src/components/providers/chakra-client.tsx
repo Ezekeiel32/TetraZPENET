@@ -2,21 +2,15 @@
 "use client";
 
 import { CacheProvider } from '@chakra-ui/next-js';
-import { ChakraProvider } from '@chakra-ui/react'; // Removed extendTheme import
+import { ChakraProvider } from '@chakra-ui/react';
 import type { ReactNode } from 'react';
 
-interface ChakraProvidersProps {
-  children: ReactNode;
-}
-
-// This component ensures ChakraProvider is only rendered on the client side.
-export default function ChakraProviders({ children }: ChakraProvidersProps) {
+export function ChakraProviders({ children }: { children: ReactNode }) {
   return (
     <CacheProvider>
-      {/* Use ChakraProvider without a theme prop */}
       <ChakraProvider>
         {children}
       </ChakraProvider>
     </CacheProvider>
-  );
+  )
 }

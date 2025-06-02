@@ -2,7 +2,9 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  experimental: {
+    optimizePackageImports: ['@chakra-ui/react', '@chakra-ui/next-js', '@chakra-ui/theme'], // Added @chakra-ui/react and related packages
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -19,20 +21,14 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // Environment variables can be defined here or in .env.local
-  // For client-side accessible variables, prefix with NEXT_PUBLIC_
-  // env: {
-  //   API_BASE_URL: process.env.API_BASE_URL || 'http://localhost:8000/api',
-  // },
   webpack: (config, { isServer }) => {
-    // Provide fallbacks for Node.js modules on the client side
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         sys: false,
         fs: false,
         path: false,
-        util: false, // Added util: false
+        util: false,
       };
     }
     return config;
