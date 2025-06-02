@@ -4,8 +4,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AppLayout from "@/components/layout/AppLayout";
 import { Toaster } from "@/components/ui/toaster";
-// Import ChakraProviders directly from the client component file
-import ChakraProviders from "@/components/providers/chakra-client"; 
+// Import the new dynamic wrapper client component
+import DynamicChakraWrapper from "@/components/providers/DynamicChakraWrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,11 +31,11 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <head />
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
-        {/* Use ChakraProviders directly */}
-        <ChakraProviders>
+        {/* Use the new DynamicChakraWrapper component */}
+        <DynamicChakraWrapper>
           <AppLayout>{children}</AppLayout>
           <Toaster />
-        </ChakraProviders>
+        </DynamicChakraWrapper>
       </body>
     </html>
   );
