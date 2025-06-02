@@ -4,9 +4,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AppLayout from "@/components/layout/AppLayout";
 import { Toaster } from "@/components/ui/toaster";
-// Import the new dynamic wrapper client component
-import ChakraLayoutWrapper from "@/components/layout/ChakraLayoutWrapper";
-import { ColorModeScript } from "@chakra-ui/react"; // Import ColorModeScript
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,13 +29,8 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <head />
       <body>
-        {/* Add ColorModeScript here */}
-        <ColorModeScript initialColorMode="dark" />
-        {/* Use the new ChakraLayoutWrapper component */}
-        <ChakraLayoutWrapper>
-          <AppLayout>{children}</AppLayout>
-          <Toaster />
-        </ChakraLayoutWrapper>
+        <AppLayout>{children}</AppLayout>
+        <Toaster />
       </body>
     </html>
   );

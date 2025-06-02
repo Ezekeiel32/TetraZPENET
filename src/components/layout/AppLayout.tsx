@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   PanelLeft, Home, Cpu, Zap, Atom, BarChart3, Settings, PlayCircle, Lightbulb, 
   Replace, Cog, Scaling, Box, Share2, Wrench, Moon, Sun, BrainCircuit, Globe, 
-  ScatterChart, IterationCw, Database, MessageSquare, Signal, SlidersHorizontal, Monitor, TrendingUp, Wand2, Rocket, ArrowRight // Added Rocket, ArrowRight
+  ScatterChart, IterationCw, Database, MessageSquare, Signal, SlidersHorizontal, Monitor, TrendingUp, Wand2, Rocket, ArrowRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -14,9 +14,9 @@ import { cn } from "@/lib/utils";
 
 const mainNavItems = [
   { href: "/introduction", label: "Introduction", icon: ArrowRight },
- { href: "/dashboard", label: "Dashboard", icon: Home },
+  { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/train", label: "Train Model", icon: PlayCircle },
-  { href: "/model-configs", label: "Model Configs", icon: Database }, // Changed icon to Database
+  { href: "/model-configs", label: "Model Configs", icon: Database },
   { href: "/configurations", label: "Job History", icon: BarChart3 }, 
   { href: "/performance", label: "Performance Analysis", icon: TrendingUp },
   { href: "/architecture", label: "Architecture", icon: Cpu },
@@ -38,7 +38,7 @@ const visNavItems = [
 ];
 
 const aiFlowsNavItems = [
-  { href: "/ai", label: "AI Flows Hub", icon: Rocket }, // Added a general hub link
+  { href: "/ai", label: "AI Flows Hub", icon: Rocket },
   { href: "/ai/implement-zpe", label: "Simulate ZPE", icon: Lightbulb },
   { href: "/ai/approximate-zpe", label: "Approximate Flow", icon: Replace },
   { href: "/ai/adapt-zpe", label: "Adapt ZPE", icon: Cog },
@@ -97,7 +97,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           href={item.href}
           className={cn(
             "flex items-center px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-            (pathname === item.href || (pathname.startsWith(item.href + '/') && item.href !== "/dashboard" && item.href !== "/" && item.href !== "/ai")) || // Adjusted condition for hub pages
+            (pathname === item.href || (pathname.startsWith(item.href + '/') && item.href !== "/dashboard" && item.href !== "/" && item.href !== "/ai")) ||
              (pathname === "/" && item.href === "/dashboard") || (pathname === "/ai" && item.href === "/ai")
               ? "bg-primary/10 text-primary"
               : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -114,7 +114,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-4 border-b border-border">
         <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold text-primary" onClick={() => setIsMobileNavOpen(false)}>
-          <Zap className="h-6 w-6" /> {/* Changed icon to Zap for main brand */}
+          <Zap className="h-6 w-6" />
           <span>TetraZPE</span>
         </Link>
       </div>
@@ -152,7 +152,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </SheetContent>
           </Sheet>
           <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold text-primary md:hidden" onClick={() => setIsMobileNavOpen(false)}>
-            <Zap className="h-6 w-6" /> {/* Changed icon */}
+            <Zap className="h-6 w-6" />
             <span className="sr-only">TetraZPE</span>
           </Link>
           <div className="ml-auto">
@@ -162,7 +162,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </Button>
           </div>
         </header>
-        <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6 overflow-auto bg-gradient-to-br from-background to-muted/30"> {/* Added subtle gradient to main */}
+        <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6 overflow-auto bg-gradient-to-br from-background to-muted/30">
           {children}
         </main>
       </div>

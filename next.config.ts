@@ -3,7 +3,8 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   experimental: {
-    optimizePackageImports: ['@chakra-ui/react', '@chakra-ui/next-js', '@chakra-ui/theme'], // Added @chakra-ui/react and related packages
+    // optimizePackageImports can be removed or kept empty if no specific packages need optimization
+    // optimizePackageImports: [], 
   },
   typescript: {
     ignoreBuildErrors: true,

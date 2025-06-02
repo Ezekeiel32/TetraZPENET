@@ -1,16 +1,3 @@
-// src/components/providers/chakra-client.tsx
-"use client";
-
-import { CacheProvider } from '@chakra-ui/next-js';
-import { ChakraProvider } from '@chakra-ui/react';
-import type { ReactNode } from 'react';
-
-export function ChakraProviders({ children }: { children: ReactNode }) {
-  return (
-    <CacheProvider>
-      <ChakraProvider>
-        {children}
-      </ChakraProvider>
-    </CacheProvider>
-  )
-}
+// This file is no longer needed and will be deleted.
+// Content replaced with a deletion marker.
+DELETE
