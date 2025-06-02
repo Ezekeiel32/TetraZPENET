@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview An AI agent to advise on parameters for the next step in a Hilbert Space Quantum Neural Network (HS-QNN) sequence.
@@ -8,13 +7,11 @@
  * - HSQNNAdvisorOutput - The return type for the adviseHSQNNParameters function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
-// TrainingParameters type is imported for type safety, actual Zod schema is defined below for internal use by the prompt.
-import type { TrainingParameters } from '@/types/training'; 
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
+import type { TrainingParameters } from '@/types/training';
 
 // Define the Zod schema for TrainingParameters locally for the flow if not easily importable
-// This should mirror the structure in @/types/training.ts
 const TrainingParametersSchemaInternal = z.object({
   totalEpochs: z.number().int().min(1).max(200),
   batchSize: z.number().int().min(8).max(256),
@@ -23,12 +20,11 @@ const TrainingParametersSchemaInternal = z.object({
   momentumParams: z.array(z.number().min(0).max(1)).length(6, "Momentum parameters must have 6 values."),
   strengthParams: z.array(z.number().min(0).max(1)).length(6, "Strength parameters must have 6 values."),
   noiseParams: z.array(z.number().min(0).max(1)).length(6, "Noise parameters must have 6 values."),
-  // couplingParams: z.array(z.number().min(0).max(1)).length(6), // Removed as per previous alignment
-  // cycleLength: z.number().int().min(4).max(128), // Removed as per previous alignment
+  couplingParams: z.array(z.number().min(0).max(1)).length(6, "Coupling parameters must have 6 values."),
   quantumCircuitSize: z.number().int().min(4).max(64),
   labelSmoothing: z.number().min(0).max(0.5),
   quantumMode: z.boolean(),
-  modelName: z.string().min(3),
+  modelName: z.string().min(1),
   baseConfigId: z.string().nullable().optional(), // Allow null
 });
 
@@ -41,7 +37,21 @@ const HSQNNAdvisorInputSchema = z.object({
 export type HSQNNAdvisorInput = z.infer<typeof HSQNNAdvisorInputSchema>;
 
 const HSQNNAdvisorOutputSchema = z.object({
-  suggestedNextTrainingParameters: TrainingParametersSchemaInternal.partial().describe("Suggested training parameters for the next HNN job. The AI may suggest changes to only a subset of parameters. The modelName should ideally be incremented or reflect the HNN step."),
+  suggestedNextTrainingParameters: z.object({
+    momentumParams: z.array(z.number().min(0).max(1)).length(6, "Momentum parameters must have 6 values."),
+    strengthParams: z.array(z.number().min(0).max(1)).length(6, "Strength parameters must have 6 values."),
+    noiseParams: z.array(z.number().min(0).max(1)).length(6, "Noise parameters must have 6 values."),
+    couplingParams: z.array(z.number().min(0).max(1)).length(6, "Coupling parameters must have 6 values."),
+    totalEpochs: z.number().int().min(1).max(200).optional(),
+    batchSize: z.number().int().min(8).max(256).optional(),
+    learningRate: z.number().min(0.00001).max(0.1).optional(),
+    weightDecay: z.number().min(0).max(0.1).optional(),
+    quantumCircuitSize: z.number().int().min(4).max(64).optional(),
+    labelSmoothing: z.number().min(0).max(0.5).optional(),
+    quantumMode: z.boolean().optional(),
+    modelName: z.string().min(1).optional(),
+    baseConfigId: z.string().nullable().optional(),
+  }).describe("Suggested training parameters for the next HNN job. This object will contain all relevant parameters."),
   reasoning: z.string().describe("A step-by-step explanation of why these parameters are suggested, linking back to the previous ZPE state, parameters, and the HNN objective. Should mention which ZPE values (high/low/average) influenced decisions.")
 });
 export type HSQNNAdvisorOutput = z.infer<typeof HSQNNAdvisorOutputSchema>;
@@ -52,8 +62,8 @@ export async function adviseHSQNNParameters(input: HSQNNAdvisorInput): Promise<H
 
 const prompt = ai.definePrompt({
   name: 'hsQnnParameterAdvisorPrompt',
-  input: {schema: HSQNNAdvisorInputSchema},
-  output: {schema: HSQNNAdvisorOutputSchema},
+  input: { schema: HSQNNAdvisorInputSchema },
+  output: { schema: HSQNNAdvisorOutputSchema },
   prompt: `You are an expert AI Research Assistant specializing in Zero-Point Energy (ZPE) enhanced Quantum Neural Networks and their sequential training in a Hilbert Space Quantum Neural Network (HS-QNN) framework.
 
 The user has completed a training job and wants advice on parameters for the *next* job in an HNN sequence.
@@ -71,6 +81,7 @@ Previous Job Details:
   - Momentum Params (ZPE): {{{previousTrainingParameters.momentumParams}}}
   - Strength Params (ZPE): {{{previousTrainingParameters.strengthParams}}}
   - Noise Params (ZPE): {{{previousTrainingParameters.noiseParams}}}
+  - Coupling Params (ZPE): {{{previousTrainingParameters.couplingParams}}}
   - Quantum Mode: {{{previousTrainingParameters.quantumMode}}}
   - Quantum Circuit Size: {{{previousTrainingParameters.quantumCircuitSize}}} (if quantumMode was true)
   - Label Smoothing: {{{previousTrainingParameters.labelSmoothing}}}
@@ -80,23 +91,30 @@ User's Objective for the Next HNN Step:
 "{{{hnnObjective}}}"
 
 Your Task:
-1.  **Analyze**: Briefly interpret the previousZpeEffects. Are they high, low, varied? How might they relate to the previousTrainingParameters and the hnnObjective?
-2.  **Suggest Parameters**: Based on your analysis and the hnnObjective, suggest a *partial* or *full* set of 'suggestedNextTrainingParameters'.
-    *   Focus on parameters that logically follow from the ZPE feedback and objective. For example:
-        *   If ZPE effects are too low and objective is to increase them, consider increasing strength/momentum params.
-        *   If accuracy was good but ZPE effects were chaotic, suggest adjustments to noise or momentum to stabilize.
-        *   If objective is to "evolve" the model, you might suggest slight systematic changes to ZPE parameters or learning rate.
-        *   The modelName for the next job should be related to the previous one, perhaps with a suffix like "_hnn_step2" or by incrementing a version number if present.
-    *   You do not need to suggest changes for every single parameter. Only suggest parameters that make sense to change. Other parameters can be assumed to carry over from the previous job if not specified.
-3.  **Reasoning**: Provide a clear, step-by-step 'reasoning' for your suggestions. Explain how the previous ZPE state and the HNN objective led to your proposed parameter changes. For example, "The ZPE effect for layer 3 ({{{previousZpeEffects.[2]}}}) was low. To achieve the objective of 'higher ZPE excitation for layer 3', I suggest increasing strengthParams[2] from {{{previousTrainingParameters.strengthParams.[2]}}} to a slightly higher value..."
+1. **Analyze**: Briefly interpret the previousZpeEffects. Are they high, low, varied? How might they relate to the previousTrainingParameters and the hnnObjective?
+2. **Suggest Parameters**: Based on your analysis and the hnnObjective, suggest a *full* set of 'suggestedNextTrainingParameters'.
+   You *must* provide values for *all* parameters listed in the \`suggestedNextTrainingParameters\` object, even if you recommend keeping them the same as the previous job.
 
-Constraints for ZPE parameters (\`momentumParams\`, \`strengthParams\`, \`noiseParams\`): values are between 0.0 and 1.0, and each must be an array of 6 values. You *must* include all three of these parameters in your \`suggestedNextTrainingParameters\` object, even if you only suggest changes to some of the values within the arrays.
+Here are the parameters you *must* include in the \`suggestedNextTrainingParameters\` object:
+- momentumParams (array of 6 numbers, 0.0-1.0)
+- strengthParams (array of 6 numbers, 0.0-1.0)
+- noiseParams (array of 6 numbers, 0.0-1.0)
+- couplingParams (array of 6 numbers, 0.0-1.0)
+- totalEpochs (integer)
+- batchSize (integer)
+- learningRate (float, 0.00001-0.1)
+- weightDecay (float, 0.0-0.1)
+- labelSmoothing (float, 0.0-0.5)
+- quantumCircuitSize (integer)
+- quantumMode (boolean)
+- modelName (string)
+- baseConfigId (string or null)
+
+Constraints for ZPE parameters (\`momentumParams\`, \`strengthParams\`, \`noiseParams\`, \`couplingParams\`): values are between 0.0 and 1.0, and each must be an array of 6 values. You *must* include all four of these parameters in your \`suggestedNextTrainingParameters\` object, even if you only suggest changes to some of the values within the arrays.
 Learning rate typically between 0.00001 and 0.1.
 
 Output your response in the specified JSON format.
-Ensure \`suggestedNextTrainingParameters\` only contains fields you are actively suggesting changes for, or a full set if you deem it necessary.
-If suggesting changes to array parameters like \`momentumParams\`, \`strengthParams\`, or \`noiseParams\`, provide the full array of 6 floating-point values (each between 0.0 and 1.0) with the changes.
-`,
+If suggesting changes to array parameters like \`momentumParams\`, \`strengthParams\`, \`noiseParams\`, or \`couplingParams\`, provide the full array of 6 floating-point values (each between 0.0 and 1.0) with the changes.`,
 });
 
 const hsQnnParameterAdvisorFlow = ai.defineFlow(
@@ -110,13 +128,14 @@ const hsQnnParameterAdvisorFlow = ai.defineFlow(
     if (!output) {
       throw new Error('AI failed to generate HNN parameter advice.');
     }
+
+    // Ensure modelName is updated to reflect it's a new model
     if (output.suggestedNextTrainingParameters && output.suggestedNextTrainingParameters.modelName === input.previousTrainingParameters.modelName) {
-        output.suggestedNextTrainingParameters.modelName = `${input.previousTrainingParameters.modelName}_hnn_next`;
+      output.suggestedNextTrainingParameters.modelName = `${input.previousTrainingParameters.modelName}_hnn_next`;
     } else if (output.suggestedNextTrainingParameters && !output.suggestedNextTrainingParameters.modelName) {
-        output.suggestedNextTrainingParameters.modelName = `${input.previousTrainingParameters.modelName}_hnn_next`;
+      output.suggestedNextTrainingParameters.modelName = `${input.previousTrainingParameters.modelName}_hnn_next`;
     }
 
     return output;
   }
 );
-

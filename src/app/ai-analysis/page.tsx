@@ -1,275 +1,227 @@
+
 "use client";
+
 import React, { useState, useEffect, Suspense, useCallback, useRef } from "react";
 import type { ModelConfig, PerformanceMetric } from "@/types/entities";
 import {
   getInitialZpeAnalysis,
   type GetInitialZpeAnalysisInput,
-  type GetInitialZpeAnalysisOutput
+  type GetInitialZpeAnalysisOutput,
 } from "@/ai/flows/get-initial-zpe-analysis-flow";
-import {
-  getZpeChatResponseFlow,
-  type GetZpeChatResponseInput,
-  type GetZpeChatResponseOutput
-} from "@/ai/flows/get-zpe-chat-response-flow";
 import {
   adviseHSQNNParameters,
   type HSQNNAdvisorInput,
-  type HSQNNAdvisorOutput
+  type HSQNNAdvisorOutput,
 } from "@/ai/flows/hs-qnn-parameter-advisor";
-import type { TrainingParameters, TrainingJob, TrainingJobSummary } from "@/types/training";
 import {
-  Brain, Sparkles, TrendingUp, Lightbulb, MessageSquare, Send, Loader2,
-  BarChart3, AlertCircle, CheckCircle, Target, Zap, Play, SlidersHorizontal, Wand2, RefreshCw, ArrowRight
+  getZpeChatResponseFlow,
+  type GetZpeChatResponseInput,
+  type GetZpeChatResponseOutput,
+} from "@/ai/flows/get-zpe-chat-response-flow";
+import type {
+  TrainingParameters,
+  TrainingJob,
+  TrainingJobSummary,
+} from "@/types/training";
+import {
+  Brain,
+  Sparkles,
+  TrendingUp,
+  Lightbulb,
+  MessageSquare,
+  Send,
+  Loader2,
+  BarChart3,
+  AlertCircle,
+  CheckCircle,
+  Target,
+  Zap,
+  Play,
+  SlidersHorizontal,
+  Wand2,
+  RefreshCw,
+  ArrowRight,
 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
+import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { z } from "zod";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
-
-// Local Zod schema for validating previous job parameters before sending to AI flow
-const TrainingParametersSchema = z.object({
-  totalEpochs: z.number().int().min(1).max(200),
-  batchSize: z.number().int().min(8).max(256),
-  learningRate: z.number().min(0.00001).max(0.1),
-  weightDecay: z.number().min(0).max(0.1),
-  momentumParams: z.array(z.number().min(0).max(1)).length(6, "Must have 6 momentum parameters"),
-  strengthParams: z.array(z.number().min(0).max(1)).length(6, "Must have 6 strength parameters"),
-  noiseParams: z.array(z.number().min(0).max(1)).length(6, "Must have 6 noise parameters"),
-  quantumCircuitSize: z.number().int().min(4).max(64),
-  labelSmoothing: z.number().min(0).max(0.5),
-  quantumMode: z.boolean(),
-  modelName: z.string().min(3, "Model name must be at least 3 characters"),
-  baseConfigId: z.string().nullable().optional(),
-});
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
 interface ChatMessage {
-  id: number;
+  id: string; // Changed to string for potential UUIDs
   type: "user" | "ai";
   content: string;
-  suggestions?: string[];
   followUp?: string[];
   timestamp: Date;
   formattedTimestamp?: string;
 }
 
+// Define TrainingParametersSchema locally to match the one in hs-qnn-parameter-advisor.ts
+const TrainingParametersSchema = z.object({
+  totalEpochs: z.number().int().min(1).max(200),
+  batchSize: z.number().int().min(8).max(256),
+  learningRate: z.number().min(0.00001).max(0.1),
+  weightDecay: z.number().min(0).max(0.1),
+  momentumParams: z.array(z.number().min(0).max(1)).length(6, "Momentum parameters must have 6 values."),
+  strengthParams: z.array(z.number().min(0).max(1)).length(6, "Strength parameters must have 6 values."),
+  noiseParams: z.array(z.number().min(0).max(1)).length(6, "Noise parameters must have 6 values."),
+  couplingParams: z.array(z.number().min(0).max(1)).length(6, "Coupling parameters must have 6 values."),
+  quantumCircuitSize: z.number().int().min(4).max(64),
+  labelSmoothing: z.number().min(0).max(0.5),
+  quantumMode: z.boolean(),
+  modelName: z.string().min(1, "Model name is required."),
+  baseConfigId: z.string().nullable().optional(),
+});
+
+
 function AIAnalysisPageComponent() {
   const router = useRouter();
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
+  const [userInput, setUserInput] = useState("");
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  
   const [configs, setConfigs] = useState<ModelConfig[]>([]);
   const [metrics, setMetrics] = useState<PerformanceMetric[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
-      id: 1,
+      id: Date.now().toString(),
       type: "ai",
-      content: "Welcome to the ZPE Quantum Neural Network AI Assistant! I can help you analyze your model performance, suggest optimizations, and answer questions about quantum effects in neural networks. What would you like to explore?",
-      timestamp: new Date()
-    }
+      content:
+        "Welcome to the ZPE Quantum Neural Network AI Assistant! I can help analyze performance, provide insights, or suggest next steps for HNN training. How can I assist you today?",
+      timestamp: new Date(),
+    },
   ]);
-  const [currentMessage, setCurrentMessage] = useState("");
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isLoadingInitialData, setIsLoadingInitialData] = useState(true);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [aiInsights, setAiInsights] = useState<GetInitialZpeAnalysisOutput | null>(null);
-  const [generalOptimizationSuggestions, setGeneralOptimizationSuggestions] = useState<GetInitialZpeAnalysisOutput['optimization_recommendations']>([]);
-  const [isLoadingInitialData, setIsLoadingInitialData] = useState(true);
-
-  // State for specific job advice
-  const [completedJobsList, setCompletedJobsList] = useState<TrainingJobSummary[]>([]);
-  const [selectedJobIdForAdvice, setSelectedJobIdForAdvice] = useState<string>("");
-  const [adviceObjective, setAdviceObjective] = useState<string>("Maximize validation accuracy while maintaining ZPE effects for all layers between 0.05 and 0.15. Explore slight increase in learning rate if previous accuracy was high.");
-  const [selectedPreviousJobDetails, setSelectedPreviousJobDetails] = useState<TrainingJob | null>(null);
+  
+  const [selectedJobIdForAdvice, setSelectedJobIdForAdvice] = useState<string | null>(null);
   const [specificAdviceResult, setSpecificAdviceResult] = useState<HSQNNAdvisorOutput | null>(null);
-  const [isLoadingSpecificAdvice, setIsLoadingSpecificAdvice] = useState<boolean>(false);
   const [specificAdviceError, setSpecificAdviceError] = useState<string | null>(null);
+  const [adviceObjective, setAdviceObjective] = useState<string>(
+    "Maximize validation accuracy while maintaining ZPE effects for all layers between 0.05 and 0.15. Explore slight increase in learning rate if previous accuracy was high."
+  );
+  const [isLoadingSpecificAdvice, setIsLoadingSpecificAdvice] = useState(false);
+  const [isLoadingJobs, setIsLoadingJobs] = useState(false);
+  const [completedJobsList, setCompletedJobsList] = useState<TrainingJobSummary[]>([]);
+  const [selectedPreviousJobDetails, setSelectedPreviousJobDetails] = useState<TrainingJob | null>(null);
+
 
   const fetchCompletedJobsList = useCallback(async () => {
-    setIsLoadingSpecificAdvice(true);
+    setIsLoadingJobs(true);
     setSpecificAdviceError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/jobs?limit=50`);
-      if (!response.ok) throw new Error("Failed to fetch jobs list from backend.");
+      const response = await fetch(`${API_BASE_URL}/jobs?limit=50`); // Fetch more for history
+      if (!response.ok) {
+        throw new Error(`Failed to fetch jobs list. Status: ${response.status}`);
+      }
       const data = await response.json();
-      const jobs = (data.jobs || []).filter((job: TrainingJobSummary) => job.status === "completed")
-        .sort((a: TrainingJobSummary, b: TrainingJobSummary) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime());
-      setCompletedJobsList(jobs);
-      if (jobs.length > 0 && !selectedJobIdForAdvice) {
-        setSelectedJobIdForAdvice(jobs[0].job_id);
+      const completedJobs = (data.jobs || [])
+        .filter((job: TrainingJobSummary) => job.status === "completed")
+        .sort(
+          (a: TrainingJobSummary, b: TrainingJobSummary) =>
+            new Date(b.start_time || 0).getTime() -
+            new Date(a.start_time || 0).getTime()
+        );
+      setCompletedJobsList(completedJobs);
+      if (completedJobs.length > 0 && !selectedJobIdForAdvice) {
+        setSelectedJobIdForAdvice(completedJobs[0].job_id);
+      } else if (completedJobs.length === 0) {
+        setSelectedJobIdForAdvice(null); // Ensure no job is selected if list is empty
       }
     } catch (e: any) {
       setSpecificAdviceError("Failed to fetch jobs: " + String(e.message));
-      toast({ title: "Error fetching jobs", description: String(e.message), variant: "destructive" });
+      toast({
+        title: "Error fetching jobs",
+        description: String(e.message),
+        variant: "destructive",
+      });
     } finally {
-      setIsLoadingSpecificAdvice(false);
+      setIsLoadingJobs(false);
     }
-  }, [selectedJobIdForAdvice]);
+  }, [selectedJobIdForAdvice]); // selectedJobIdForAdvice ensures re-fetch if it changes elsewhere
 
   useEffect(() => {
     fetchCompletedJobsList();
   }, [fetchCompletedJobsList]);
 
   useEffect(() => {
-    if (selectedJobIdForAdvice) {
-      const fetchJobDetails = async () => {
-        setIsLoadingSpecificAdvice(true);
-        setSpecificAdviceResult(null);
-        setSpecificAdviceError(null);
-        try {
-          const response = await fetch(`${API_BASE_URL}/status/${selectedJobIdForAdvice}`);
-          if (!response.ok) throw new Error(`Failed to fetch details for job ${selectedJobIdForAdvice}. Status: ${response.status}`);
-          const data: TrainingJob = await response.json();
-          setSelectedPreviousJobDetails(data);
-        } catch (e: any) {
-          setSelectedPreviousJobDetails(null);
-          setSpecificAdviceError("Failed to fetch selected job details: " + String(e.message));
-          toast({ title: "Error fetching job details", description: String(e.message), variant: "destructive" });
-        } finally {
-          setIsLoadingSpecificAdvice(false);
-        }
-      };
-      fetchJobDetails();
-    } else {
-      setSelectedPreviousJobDetails(null);
-      setSpecificAdviceResult(null);
-    }
-  }, [selectedJobIdForAdvice]);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoadingInitialData(true);
+    const fetchJobDetails = async () => {
+      if (!selectedJobIdForAdvice) {
+        setSelectedPreviousJobDetails(null); // Clear details if no job is selected
+        return;
+      }
+      setIsLoadingSpecificAdvice(true); // Indicate loading for job details
+      setSpecificAdviceResult(null); // Clear previous advice
+      setSpecificAdviceError(null);
       try {
-        const modelConfigsData: ModelConfig[] = [];
-        const performanceMetricsData: PerformanceMetric[] = [];
-        setConfigs(modelConfigsData);
-        setMetrics(performanceMetricsData);
-        await generateInitialAnalysis(modelConfigsData, performanceMetricsData);
-      } catch (error) {
-        console.error("Error fetching initial data:", error);
-        setAiInsights({
-          performance_assessment: "Error fetching model data. Cannot perform analysis.",
-          quantum_insights: "N/A",
-          optimization_recommendations: [],
-          attention_areas: ["Data fetching failed."]
+        const response = await fetch(`${API_BASE_URL}/status/${selectedJobIdForAdvice}`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch job details for ${selectedJobIdForAdvice}. Status: ${response.status}`);
+        }
+        const jobDetails: TrainingJob = await response.json();
+        setSelectedPreviousJobDetails(jobDetails);
+      } catch (e: any) {
+        setSelectedPreviousJobDetails(null);
+        setSpecificAdviceError("Error fetching job details: " + String(e.message));
+        toast({
+          title: "Error fetching job details",
+          description: String(e.message),
+          variant: "destructive",
         });
+      } finally {
+        setIsLoadingSpecificAdvice(false);
       }
-      setIsLoadingInitialData(false);
     };
-    fetchData();
-  }, []);
 
-  const generateInitialAnalysis = async (currentConfigs: ModelConfig[], currentMetrics: PerformanceMetric[]) => {
-    setIsGeneratingInsights(true);
-    try {
-      const analysisData: GetInitialZpeAnalysisInput = {
-        totalConfigs: currentConfigs.length,
-        bestAccuracy: currentConfigs.length > 0 ? Math.max(...currentConfigs.map(c => c.accuracy || 0)) : 0,
-        averageAccuracy: currentConfigs.length > 0 ? currentConfigs.reduce((sum, c) => sum + (c.accuracy || 0), 0) / currentConfigs.length : 0,
-        quantumConfigs: currentConfigs.filter(c => c.use_quantum_noise).length,
-        recentMetricsCount: currentMetrics.slice(-10).length
-      };
-      const result = await getInitialZpeAnalysis(analysisData);
-      if (result) {
-        setAiInsights(result);
-        setGeneralOptimizationSuggestions(result.optimization_recommendations || []);
-      } else {
-        throw new Error("AI analysis returned no result.");
-      }
-    } catch (error: any) {
-      console.error("Error generating initial analysis:", error);
-      toast({ title: "Error", description: "Could not generate initial analysis: " + String(error.message), variant: "destructive" });
-      setAiInsights({
-        performance_assessment: "Could not generate analysis due to an error.",
-        quantum_insights: "Please check console for details.",
-        optimization_recommendations: [],
-        attention_areas: ["AI flow call failed."]
-      });
-    }
-    setIsGeneratingInsights(false);
-  };
-
-  useEffect(() => {
-    if (chatMessages.some(msg => !msg.formattedTimestamp)) {
-      setChatMessages(prevMessages =>
-        prevMessages.map(msg =>
-          msg.formattedTimestamp
-            ? msg
-            : { ...msg, formattedTimestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
-        )
-      );
-    }
-    const timeoutId = setTimeout(() => {
-      if (chatContainerRef.current) {
-        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-      }
-    }, 100);
-    return () => clearTimeout(timeoutId);
-  }, [chatMessages]);
-
-  const handleSendMessage = async () => {
-    if (!currentMessage.trim()) return;
-    const userMessage: ChatMessage = { id: Date.now(), type: "user", content: currentMessage, timestamp: new Date() };
-    setChatMessages(prev => [...prev, userMessage]);
-    const tempCurrentMessage = currentMessage;
-    setCurrentMessage("");
-    setIsAnalyzing(true);
-    try {
-      const inputForAI: GetZpeChatResponseInput = { userPrompt: tempCurrentMessage };
-      const result = await getZpeChatResponseFlow(inputForAI);
-      const aiMessage: ChatMessage = {
-        id: Date.now() + 1,
-        type: "ai",
-        content: result.response || "I'm having trouble. Could you rephrase?",
-        timestamp: new Date()
-      };
-      setChatMessages(prev => [...prev, aiMessage]);
-    } catch (error: any) {
-      console.error("Error getting AI response:", error);
-      const aiErrorMessage: ChatMessage = {
-        id: Date.now() + 1,
-        type: "ai",
-        content: "Sorry, I encountered an error trying to respond: " + String(error.message),
-        timestamp: new Date()
-      };
-      setChatMessages(prev => [...prev, aiErrorMessage]);
-      toast({ title: "Error", description: "Could not get AI response: " + String(error.message), variant: "destructive" });
-    }
-    setIsAnalyzing(false);
-  };
+    fetchJobDetails();
+  }, [selectedJobIdForAdvice]);
 
   const handleGetSpecificAdvice = async () => {
     if (!selectedPreviousJobDetails) {
       toast({ title: "Error", description: "Previous job details not loaded. Please select a job.", variant: "destructive" });
       return;
     }
+    if (selectedPreviousJobDetails.status !== "completed") {
+      toast({ title: "Invalid Job", description: "Please select a 'completed' job for HNN advice.", variant: "destructive" });
+      return;
+    }
     if (!selectedPreviousJobDetails.parameters) {
       toast({ title: "Error", description: "Selected job is missing training parameters.", variant: "destructive" });
       return;
     }
-    if (selectedPreviousJobDetails.status !== 'completed') {
-      toast({ title: "Invalid Job", description: "Please select a 'completed' job for HNN advice.", variant: "destructive" });
-      return;
-    }
+
     setIsLoadingSpecificAdvice(true);
     setSpecificAdviceError(null);
     setSpecificAdviceResult(null);
+
     const validationResult = TrainingParametersSchema.safeParse(selectedPreviousJobDetails.parameters);
     if (!validationResult.success) {
-      console.error("Validation error for previousTrainingParameters:", validationResult.error);
-      const errorDetails = validationResult.error.errors?.map((err) => `${err.path.join('.') || 'parameter'}: ${err.message}`).join('; ') || "Unknown validation error.";
+      const errorDetails = validationResult.error.errors?.map((err) => `${err.path.join(".") || "parameter"}: ${err.message}`).join("; ") || "Unknown validation error.";
       setSpecificAdviceError("Previous job parameters are invalid or incomplete. Details: " + errorDetails);
       toast({ title: "Parameter Validation Failed", description: "Previous job parameters are invalid. " + errorDetails, variant: "destructive", duration: 7000 });
       setIsLoadingSpecificAdvice(false);
       return;
     }
+
     const validatedPreviousParams = validationResult.data;
     const inputForAI: HSQNNAdvisorInput = {
       previousJobId: selectedPreviousJobDetails.job_id,
@@ -277,27 +229,13 @@ function AIAnalysisPageComponent() {
       previousTrainingParameters: validatedPreviousParams,
       hnnObjective: adviceObjective,
     };
+
     try {
       const output = await adviseHSQNNParameters(inputForAI);
-      const defaultParams = Array(6).fill(0);
-      const processedSuggestedParams: Partial<TrainingParameters> = {
-        momentumParams: defaultParams,
-        strengthParams: defaultParams,
-        noiseParams: defaultParams,
-        totalEpochs: selectedPreviousJobDetails?.parameters?.totalEpochs ?? 10,
-        batchSize: selectedPreviousJobDetails?.parameters?.batchSize ?? 32,
-        learningRate: selectedPreviousJobDetails?.parameters?.learningRate ?? 0.001,
-        weightDecay: selectedPreviousJobDetails?.parameters?.weightDecay ?? 0.0001,
-        quantumCircuitSize: selectedPreviousJobDetails?.parameters?.quantumCircuitSize ?? 8,
-        labelSmoothing: selectedPreviousJobDetails?.parameters?.labelSmoothing ?? 0,
-        quantumMode: selectedPreviousJobDetails?.parameters?.quantumMode ?? true,
-        modelName: `${selectedPreviousJobDetails?.parameters?.modelName || 'Default'}_hnn_advised_${Date.now().toString().slice(-4)}`,
-        baseConfigId: selectedPreviousJobDetails?.job_id ?? undefined,
-      };
       setSpecificAdviceResult(output);
       toast({ title: "Specific Advice Generated", description: "AI has provided suggestions for the selected job." });
     } catch (e: any) {
-      setSpecificAdviceError("AI advice generation failed: " + String(e.message));
+      setSpecificAdviceError(String(e.message));
       toast({ title: "Specific Advice Failed", description: String(e.message), variant: "destructive" });
     } finally {
       setIsLoadingSpecificAdvice(false);
@@ -311,43 +249,28 @@ function AIAnalysisPageComponent() {
     }
     const baseParamsForRouter = selectedPreviousJobDetails?.parameters ? { ...selectedPreviousJobDetails.parameters } : {};
     const combinedParamsForRouter: Record<string, any> = { ...baseParamsForRouter, ...suggestionParams };
+
     if (suggestionParams.modelName) {
       combinedParamsForRouter.modelName = suggestionParams.modelName;
     } else if (baseParamsForRouter.modelName) {
-      combinedParamsForRouter.modelName = `${baseParamsForRouter.modelName}_hnn_advised`;
+      combinedParamsForRouter.modelName = `${baseParamsForRouter.modelName}_hnn_advised_${Date.now().toString().slice(-4)}`;
     } else {
       combinedParamsForRouter.modelName = `HNN_Advised_Model_${Date.now().toString().slice(-4)}`;
     }
-    if (selectedPreviousJobDetails?.job_id) {
-      combinedParamsForRouter.baseConfigId = selectedPreviousJobDetails.job_id;
-    }
+    if (selectedPreviousJobDetails?.job_id) { combinedParamsForRouter.baseConfigId = selectedPreviousJobDetails.job_id; }
+
     const query = new URLSearchParams();
-    for (const [key, value] of Object.entries(combinedParamsForRouter)) {
+    Object.entries(combinedParamsForRouter).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
-        if (Array.isArray(value)) {
-          query.set(String(key), JSON.stringify(value));
-        } else {
-          query.set(String(key), String(value));
-        }
+        if (Array.isArray(value)) { query.set(String(key), JSON.stringify(value)); }
+        else { query.set(String(key), String(value)); }
       }
-    }
+    });
     router.push(`/train?${query.toString()}`);
   };
 
-  const handleQuickQuestion = (question: string) => {
-    setCurrentMessage(question);
-  };
-
-  const quickQuestions = [
-    "How can I improve my model's accuracy?",
-    "What's the optimal ZPE momentum configuration?",
-    "How does quantum noise affect convergence?",
-    "Analyze my best performing configuration",
-    "Suggest parameters for a new experiment"
-  ];
-
   interface ParamListProps {
-    params: Partial<TrainingParameters> | undefined;
+    params: Partial<TrainingParameters> | TrainingParameters | undefined;
     title: string;
   }
 
@@ -359,17 +282,30 @@ function AIAnalysisPageComponent() {
       }
       return <p className="text-sm text-muted-foreground italic">{message}</p>;
     }
-    const entries = Object.entries(params);
+    const orderedKeys: (keyof TrainingParameters)[] = [
+      "modelName", "totalEpochs", "batchSize", "learningRate", "weightDecay", 
+      "quantumCircuitSize", "labelSmoothing", "quantumMode", 
+      "momentumParams", "strengthParams", "noiseParams", "couplingParams", "baseConfigId"
+    ];
     return (
       <div className="space-y-1 text-sm">
         <h4 className="font-semibold text-muted-foreground">{title}:</h4>
         <ul className="list-disc list-inside pl-4 space-y-1 bg-background/50 p-2 rounded">
-          {entries.map(([key, value]) => {
+          {orderedKeys.map((key) => {
+            const value = params[key as keyof typeof params];
             if (value === undefined || value === null) return null;
+             if (title === "Suggested Changes" && key === "baseConfigId" && value === selectedPreviousJobDetails?.job_id) {
+                return null; 
+            }
+            if (title === "Suggested Changes" && key === "modelName" && 
+                value === selectedPreviousJobDetails?.parameters.modelName && 
+                !adviceResult?.suggestedNextTrainingParameters?.modelName) {
+              return null;
+            }
             return (
               <li key={key}>
-                <span className="font-medium">{key}:</span>{' '}
-                {Array.isArray(value) ? `[${value.map(v => typeof v === 'number' ? v.toFixed(4) : String(v)).join(', ')}]` : String(value)}
+                <span className="font-medium">{key}:</span>{" "}
+                {Array.isArray(value) ? `[${value.map((v) => typeof v === "number" ? v.toFixed(4) : String(v)).join(", ")}]` : String(value)}
               </li>
             );
           })}
@@ -377,6 +313,93 @@ function AIAnalysisPageComponent() {
       </div>
     );
   };
+
+  const generateInitialAnalysis = async () => {
+    if (!configs) return; // Added null check for configs
+    setIsGeneratingInsights(true);
+    setAiInsights(null); // Clear previous insights
+    try {
+      const analysisData: GetInitialZpeAnalysisInput = {
+        totalConfigs: configs.length,
+        bestAccuracy: configs.length > 0 ? Math.max(...configs.map((c) => c.accuracy || 0)) : 0,
+        averageAccuracy: configs.length > 0 ? configs.reduce((sum, c) => sum + (c.accuracy || 0), 0) / configs.length : 0,
+        quantumConfigs: configs.filter(c => c.parameters.quantumMode).length,
+        recentMetricsCount: metrics.length,
+      };
+      const insights = await getInitialZpeAnalysis(analysisData);
+      setAiInsights(insights);
+    } catch (error) {
+      console.error("Error fetching initial data:", error);
+      setAiInsights({
+        performance_assessment: "Error fetching model data. Cannot perform analysis.",
+        quantum_insights: "N/A",
+        optimization_recommendations: [],
+        attention_areas: ["Data fetching failed."],
+      });
+    } finally {
+      setIsGeneratingInsights(false);
+    }
+  };
+
+  const handleChatSubmit = async () => {
+    if (!userInput.trim()) return;
+    const newUserMessage: ChatMessage = {
+      id: Date.now().toString(),
+      type: "user",
+      content: userInput,
+      timestamp: new Date(),
+    };
+    setChatMessages((prev) => [...prev, newUserMessage]);
+    setUserInput("");
+    setIsChatLoading(true);
+
+    try {
+      const aiResponse = await getZpeChatResponseFlow({ userPrompt: userInput });
+      const newAiMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: "ai",
+        content: aiResponse.response,
+        timestamp: new Date(),
+      };
+      setChatMessages((prev) => [...prev, newAiMessage]);
+    } catch (e: any) {
+      const errorAiMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: "ai",
+        content: "Sorry, I encountered an error trying to respond. " + e.message,
+        timestamp: new Date(),
+      };
+      setChatMessages((prev) => [...prev, errorAiMessage]);
+    } finally {
+      setIsChatLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Fetch initial data for overview if needed (currently placeholders)
+    // For example, if configs and metrics were from a DB:
+    // const fetchOverviewData = async () => {
+    //   // setIsLoadingInitialData(true);
+    //   // const fetchedConfigs = await fetch('/api/all-configs'); // example
+    //   // const fetchedMetrics = await fetch('/api/all-metrics'); // example
+    //   // setConfigs(await fetchedConfigs.json());
+    //   // setMetrics(await fetchedMetrics.json());
+    //   // setIsLoadingInitialData(false);
+    //   // generateInitialAnalysis(await fetchedConfigs.json(), await fetchedMetrics.json());
+    // };
+    // fetchOverviewData();
+    // Since configs/metrics are empty, we call generateInitialAnalysis with empty arrays.
+    generateInitialAnalysis(); // Call it once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array to run once on mount
+
+
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
+
 
   return (
     <div className="p-6 bg-background text-foreground">
@@ -386,281 +409,282 @@ function AIAnalysisPageComponent() {
             <Brain className="h-8 w-8 text-primary" /> AI Analysis & Assistant
           </h1>
           <p className="text-muted-foreground">
-            Get intelligent insights, optimization suggestions, and ask questions about your ZPE quantum neural network
+            Analyze your models, get optimization recommendations, and interact
+            with the AI assistant.
           </p>
         </div>
-        <Tabs defaultValue="chat" className="space-y-4">
+
+        <Tabs defaultValue="overview">
           <TabsList>
+            <TabsTrigger value="overview">Overview Analysis</TabsTrigger>
+            <TabsTrigger value="specific-advice">HNN Advice</TabsTrigger>
             <TabsTrigger value="chat">AI Chat</TabsTrigger>
-            <TabsTrigger value="insights">Auto Analysis</TabsTrigger>
-            <TabsTrigger value="optimize">Optimization Suggestions</TabsTrigger>
           </TabsList>
-          <TabsContent value="chat" className="space-y-4">
-            <div className="grid lg:grid-cols-3 gap-6">
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><MessageSquare className="h-5 w-5 text-primary" />AI Assistant Chat</CardTitle>
-                  <CardDescription>Ask questions about your model performance, get optimization advice, or explore quantum effects</CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="h-[500px] p-4 overflow-y-auto" ref={chatContainerRef}>
-                    {chatMessages.map((message) => (
-                      <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[80%] rounded-lg p-3 ${message.type === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                          <div className="text-sm whitespace-pre-wrap">{message.content}</div>
-                          <div className="text-xs opacity-70 mt-1 text-right">{message.formattedTimestamp || "..."}</div>
-                        </div>
-                      </div>
-                    ))}
-                    {isAnalyzing && (
-                      <div className="flex justify-start">
-                        <div className="bg-muted rounded-lg p-3">
-                          <div className="flex items-center gap-2">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            <span className="text-sm">AI is analyzing...</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="border-t p-4">
-                    <div className="flex gap-2">
-                      <Textarea placeholder="Ask about model performance, optimization strategies, quantum effects, or dataset characteristics..." value={currentMessage} onChange={(e) => setCurrentMessage(e.target.value)} onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }}} className="flex-1" rows={2} />
-                      <Button onClick={handleSendMessage} disabled={!currentMessage.trim() || isAnalyzing} size="sm"><Send className="h-4 w-4 mr-1" /> Send</Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <div className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Quick Questions</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {quickQuestions.map((question, idx) => (
-                      <Button key={idx} variant="outline" size="sm" className="w-full text-left justify-start h-auto p-2 text-xs" onClick={() => handleQuickQuestion(question)}>
-                        {question}
-                      </Button>
-                    ))}
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">System Status</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Model Configs:</span>
-                      <Badge variant="outline">{configs.length}</Badge>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Best Accuracy:</span>
-                      <Badge variant="outline">{configs.length > 0 ? Math.max(...configs.map(c => c.accuracy || 0)).toFixed(1) : 0}%</Badge>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Quantum Enabled:</span>
-                      <Badge variant="outline">{configs.filter(c => c.use_quantum_noise).length}/{configs.length}</Badge>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Training Metrics:</span>
-                      <Badge variant="outline">{metrics.length}</Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          </TabsContent>
-          <TabsContent value="insights" className="space-y-4">
-            {isLoadingInitialData || isGeneratingInsights ? (
-              <Card>
-                <CardContent className="flex items-center justify-center h-64">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                    <span>{isLoadingInitialData ? "Loading model data..." : "AI generating insights..."}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : aiInsights ? (
-              <div className="grid md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-green-500" />Performance Assessment</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{aiInsights.performance_assessment}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-purple-500" />Quantum Effects Analysis</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{aiInsights.quantum_insights}</p>
-                  </CardContent>
-                </Card>
-                {aiInsights.attention_areas && aiInsights.attention_areas.length > 0 && (
-                  <Card className="md:col-span-2">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2"><AlertCircle className="h-5 w-5 text-orange-500" />Areas Requiring Attention</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <ul className="space-y-2">
-                        {aiInsights.attention_areas.map((area, idx) => (
-                          <li key={idx} className="flex items-start gap-2">
-                            <AlertCircle className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
-                            <span className="text-sm">{area}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="flex items-center justify-center h-64">
-                  <div className="text-center">
-                    <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">No model data available for analysis</p>
-                    <p className="text-sm text-muted-foreground mt-2">Train some models first to get AI insights</p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-          <TabsContent value="optimize" className="space-y-6">
+
+          <TabsContent value="overview">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Wand2 className="h-5 w-5 text-primary"/>Get Specific Advice for a Completed Job</CardTitle>
-                <CardDescription>Select a job and define an objective for targeted parameter suggestions.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="specificJobSelect">Select Previous Completed Job</Label>
-                  <Select onValueChange={setSelectedJobIdForAdvice} value={selectedJobIdForAdvice} disabled={isLoadingSpecificAdvice || completedJobsList.length === 0}>
-                    <SelectTrigger id="specificJobSelect">
-                      <SelectValue placeholder={isLoadingSpecificAdvice ? "Loading jobs..." : completedJobsList.length === 0 ? "No completed jobs" : "Select a completed job"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {isLoadingSpecificAdvice && <SelectItem value="loading" disabled>Loading jobs...</SelectItem>}
-                      {!isLoadingSpecificAdvice && completedJobsList.length === 0 && <SelectItem value="no-jobs" disabled>No completed jobs found.</SelectItem>}
-                      {completedJobsList.map(job => (
-                        <SelectItem key={job.job_id} value={job.job_id}>
-                          {job.model_name} ({job.job_id.slice(-6)}) - Acc: {job.accuracy.toFixed(2)}%
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {selectedPreviousJobDetails && (
-                  <Card className="bg-muted/30 p-3 text-xs">
-                    <CardHeader className="p-0 pb-2">
-                      <CardTitle className="text-sm">Selected Job Context</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0 space-y-0.5">
-                      <p><strong>Model:</strong> {selectedPreviousJobDetails.parameters?.modelName || 'N/A'}</p>
-                      <p><strong>Accuracy:</strong> {(selectedPreviousJobDetails.accuracy ?? 0).toFixed(2)}% | <strong>Loss:</strong> {(selectedPreviousJobDetails.loss ?? 0).toFixed(4)}</p>
-                      <p>
-                        <strong>ZPE Effects (avg):</strong> 
-                        {Array.isArray(selectedPreviousJobDetails.zpe_effects) && selectedPreviousJobDetails.zpe_effects.length > 0 
-                          ? `[${selectedPreviousJobDetails.zpe_effects.map(z => (z ?? 0).toFixed(3)).join(', ')}]`
-                          : 'N/A'
-                        }
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-                <div>
-                  <Label htmlFor="adviceObjective">HNN Objective for Next Step</Label>
-                  <Textarea id="adviceObjective" value={adviceObjective} onChange={(e) => setAdviceObjective(e.target.value)} rows={3} placeholder="e.g., Maximize accuracy while exploring higher ZPE for layer 3..." />
-                </div>
-                <Button onClick={handleGetSpecificAdvice} className="w-full" disabled={isLoadingSpecificAdvice || !selectedJobIdForAdvice || !selectedPreviousJobDetails || selectedPreviousJobDetails.status !== 'completed'}>
-                  {isLoadingSpecificAdvice ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lightbulb className="mr-2 h-4 w-4" />}
-                  Get Specific Advice
-                </Button>
-              </CardContent>
-              {specificAdviceError && (
-                <CardFooter>
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Error</AlertTitle>
-                    <AlertDescription>{specificAdviceError}</AlertDescription>
-                  </Alert>
-                </CardFooter>
-              )}
-              {specificAdviceResult && (
-                <CardContent className="mt-4 border-t pt-4 space-y-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base flex items-center gap-2"><SlidersHorizontal className="h-5 w-5"/>Suggested Changes</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <ScrollArea className="h-32">
-                        <ParamList params={specificAdviceResult.suggestedNextTrainingParameters} title="Parameters" />
-                      </ScrollArea>
-                    </CardContent>
-                    <CardFooter>
-                      <Button onClick={() => handleLoadSuggestionInTrainer(specificAdviceResult.suggestedNextTrainingParameters)} className="w-full"><Play className="mr-2 h-4 w-4"/>Use in Trainer</Button>
-                    </CardFooter>
-                  </Card>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Reasoning</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <ScrollArea className="h-32">
-                        <p className="text-sm whitespace-pre-wrap">{specificAdviceResult.reasoning}</p>
-                      </ScrollArea>
-                    </CardContent>
-                  </Card>
-                </CardContent>
-              )}
-            </Card>
-            <Separator className="my-8"/>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary"/>General Optimization Suggestions</CardTitle>
-                <CardDescription>Based on the overall summary of your training runs.</CardDescription>
+                <CardTitle>Model Performance Analysis</CardTitle>
+                <CardDescription>
+                  AI-generated insights based on overall model statistics.
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                {isLoadingInitialData || isGeneratingInsights ? (
-                  <div className="flex items-center justify-center h-40">
-                    <Loader2 className="h-6 w-6 animate-spin" />
+                {isGeneratingInsights || isLoadingInitialData ? (
+                  <div className="text-center py-10">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+                    <p className="text-muted-foreground mt-2">
+                      {isLoadingInitialData ? "Loading initial data..." : "Generating insights..."}
+                    </p>
                   </div>
-                ) : generalOptimizationSuggestions && generalOptimizationSuggestions.length > 0 ? (
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {generalOptimizationSuggestions.map((suggestion, idx) => (
-                      <Card key={idx}>
-                        <CardHeader>
-                          <div className="flex items-start justify-between">
-                            <CardTitle className="flex items-center gap-2 text-base"><Target className="h-5 w-5 text-blue-500" />{suggestion.title}</CardTitle>
-                            <Badge variant={suggestion.priority === 'High' ? 'destructive' : suggestion.priority === 'Medium' ? 'default' : 'secondary'}>{suggestion.priority} Priority</Badge>
-                          </div>
-                        </CardHeader>
+                ) : aiInsights ? (
+                  <div className="space-y-4">
+                    <Alert>
+                      <Sparkles className="h-4 w-4" />
+                      <AlertTitle>Performance Assessment</AlertTitle>
+                      <AlertDescription>{aiInsights.performance_assessment}</AlertDescription>
+                    </Alert>
+                    <Alert>
+                      <Zap className="h-4 w-4" />
+                      <AlertTitle>Quantum Insights</AlertTitle>
+                      <AlertDescription>{aiInsights.quantum_insights}</AlertDescription>
+                    </Alert>
+                    
+                    <Card className="pt-4">
+                        <CardHeader className="pt-0 pb-2"><CardTitle className="text-lg">Optimization Recommendations</CardTitle></CardHeader>
                         <CardContent>
-                          <p className="text-sm text-muted-foreground mb-3 whitespace-pre-wrap">{suggestion.description}</p>
-                          {suggestion.expected_impact && (
-                            <div className="flex items-center gap-2 text-sm mb-3">
-                              <Zap className="h-4 w-4 text-green-500" />
-                              <span className="font-medium">Expected Impact:</span>
-                              <span>{suggestion.expected_impact}</span>
-                            </div>
-                          )}
-                          {suggestion.suggested_parameters && (
-                            <Button size="sm" variant="outline" onClick={() => handleLoadSuggestionInTrainer(suggestion.suggested_parameters)} className="w-full">
-                              <Play className="h-4 w-4 mr-2"/>Load these Parameters in Trainer
-                            </Button>
-                          )}
+                            {aiInsights.optimization_recommendations.length > 0 ? (
+                                <ScrollArea className="h-60 pr-3">
+                                    <div className="space-y-3">
+                                        {aiInsights.optimization_recommendations.map((rec, idx) => (
+                                        <Card key={idx} className="bg-muted/50 p-3">
+                                            <h4 className="font-semibold text-sm flex items-center gap-2">
+                                                {rec.priority === "High" && <AlertCircle className="h-4 w-4 text-destructive" />}
+                                                {rec.priority === "Medium" && <AlertTriangle className="h-4 w-4 text-yellow-500" />}
+                                                {rec.priority === "Low" && <Lightbulb className="h-4 w-4 text-green-500" />}
+                                                {rec.title} <Badge variant={rec.priority === "High" ? "destructive" : rec.priority === "Medium" ? "secondary": "outline"}>{rec.priority}</Badge>
+                                            </h4>
+                                            <p className="text-xs text-muted-foreground mt-1">{rec.description}</p>
+                                            <p className="text-xs mt-1"><strong>Impact:</strong> {rec.expected_impact}</p>
+                                            {rec.suggested_parameters && Object.keys(rec.suggested_parameters).length > 0 && (
+                                                <details className="text-xs mt-1">
+                                                    <summary className="cursor-pointer hover:underline">Suggested Parameters</summary>
+                                                    <pre className="text-xs font-mono bg-background p-1 mt-1 rounded overflow-x-auto">{JSON.stringify(rec.suggested_parameters, null, 2)}</pre>
+                                                </details>
+                                            )}
+                                        </Card>
+                                        ))}
+                                    </div>
+                                </ScrollArea>
+                            ) : <p className="text-sm text-muted-foreground">No specific optimization recommendations at this time.</p>}
                         </CardContent>
-                      </Card>
-                    ))}
+                    </Card>
+
+                    <Card className="pt-4">
+                        <CardHeader className="pt-0 pb-2"><CardTitle className="text-lg">Attention Areas</CardTitle></CardHeader>
+                        <CardContent>
+                             {aiInsights.attention_areas.length > 0 ? (
+                                <ul className="list-disc list-inside pl-4 space-y-1 text-sm">
+                                {aiInsights.attention_areas.map((area, idx) => ( <li key={idx}>{area}</li> ))}
+                                </ul>
+                             ): <p className="text-sm text-muted-foreground">No specific areas requiring immediate attention identified.</p>}
+                        </CardContent>
+                    </Card>
                   </div>
                 ) : (
-                  <div className="text-center py-10">
-                    <Lightbulb className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">No general suggestions available.</p>
-                  </div>
+                    <p className="text-muted-foreground text-center py-10">Could not generate insights. Please ensure model data is available.</p>
                 )}
+              </CardContent>
+               <CardFooter>
+                <Button onClick={() => generateInitialAnalysis()} disabled={isGeneratingInsights || isLoadingInitialData}>
+                    <RefreshCw className={`mr-2 h-4 w-4 ${isGeneratingInsights ? 'animate-spin':''}`}/> Re-analyze Overview
+                </Button>
+               </CardFooter>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="specific-advice">
+            <Card>
+              <CardHeader>
+                <CardTitle>Get Specific HNN Advice</CardTitle>
+                <CardDescription>
+                  Select a previous completed job and provide an objective to receive tailored advice for the next step in your HNN sequence.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div>
+                    <Label htmlFor="jobSelection">Select a Completed Job:</Label>
+                    <Select
+                      value={selectedJobIdForAdvice || ""}
+                      onValueChange={(value) => setSelectedJobIdForAdvice(value)}
+                      disabled={isLoadingJobs || isLoadingSpecificAdvice}
+                    >
+                      <SelectTrigger id="jobSelection">
+                        <SelectValue placeholder={
+                          isLoadingJobs ? "Loading jobs..." : 
+                          !isLoadingJobs && completedJobsList.length === 0 ? "No completed jobs found" :
+                          "Choose a completed job..."
+                        } />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {isLoadingJobs && <SelectItem value="loading" disabled>Loading...</SelectItem>}
+                        {!isLoadingJobs && completedJobsList.length === 0 && <SelectItem value="no-jobs" disabled>No completed jobs.</SelectItem>}
+                        {completedJobsList.map((job) => (
+                          <SelectItem key={job.job_id} value={job.job_id}>
+                            {job.model_name || job.job_id.slice(-8)} (Acc: {job.accuracy.toFixed(2)}%)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {isLoadingSpecificAdvice && selectedJobIdForAdvice && <p className="text-xs text-muted-foreground mt-1">Loading details for job {selectedJobIdForAdvice.slice(-8)}...</p>}
+                  </div>
+
+                  {selectedPreviousJobDetails && (
+                    <Card className="bg-muted/50 p-4">
+                      <CardHeader className="p-0 pb-2"><CardTitle className="text-base">Previous Job Summary</CardTitle></CardHeader>
+                      <CardContent className="p-0 text-sm space-y-1">
+                        <p><strong>Model:</strong> {selectedPreviousJobDetails.parameters.modelName}</p>
+                        <p><strong>Accuracy:</strong> {selectedPreviousJobDetails.accuracy.toFixed(2)}%</p>
+                        <p><strong>ZPE Effects:</strong> [{selectedPreviousJobDetails.zpe_effects.map(z => z.toFixed(3)).join(', ')}]</p>
+                        <details className="mt-2 text-xs">
+                            <summary className="cursor-pointer hover:underline text-muted-foreground">View All Previous Parameters</summary>
+                            <ScrollArea className="h-32 mt-1 border p-2 rounded-md bg-background">
+                               <ParamList params={selectedPreviousJobDetails.parameters} title="Previous Parameters"/>
+                            </ScrollArea>
+                        </details>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  <div>
+                    <Label htmlFor="adviceObjective">Objective for Next HNN Step:</Label>
+                    <Textarea
+                      id="adviceObjective"
+                      value={adviceObjective}
+                      onChange={(e) => setAdviceObjective(e.target.value)}
+                      rows={4}
+                      placeholder="e.g., Maximize accuracy while exploring higher ZPE for layer 3..."
+                    />
+                  </div>
+
+                  <Button
+                    onClick={handleGetSpecificAdvice}
+                    className="w-full"
+                    disabled={isLoadingSpecificAdvice || !selectedPreviousJobDetails || (selectedPreviousJobDetails && selectedPreviousJobDetails.status !== "completed")}
+                  >
+                    {isLoadingSpecificAdvice && !specificAdviceResult ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Wand2 className="mr-2 h-4 w-4" />
+                    )}
+                    Get HNN Advice
+                  </Button>
+
+                  {specificAdviceError && (
+                    <Alert variant="destructive">
+                      <Terminal className="h-4 w-4" />
+                      <AlertTitle>Error</AlertTitle>
+                      <AlertDescription>{specificAdviceError}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  {isLoadingSpecificAdvice && specificAdviceResult && (
+                     <div className="text-center py-6">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
+                        <p className="text-muted-foreground mt-2">Loading advice...</p>
+                    </div>
+                  )}
+
+                  {adviceResult && !isLoadingSpecificAdvice && (
+                    <div className="mt-6 space-y-4">
+                      <Card>
+                        <CardHeader><CardTitle className="text-lg flex items-center gap-2"><SlidersHorizontal className="h-5 w-5"/>Suggested Parameters for Next Job</CardTitle></CardHeader>
+                        <CardContent>
+                           <ScrollArea className="h-48">
+                              <ParamList params={adviceResult.suggestedNextTrainingParameters} title="Suggested Changes"/>
+                               <p className="text-xs text-muted-foreground mt-2">
+                                Note: AI suggested changes are shown. Other parameters will typically be inherited from the previous job.
+                                A new model name ({adviceResult.suggestedNextTrainingParameters?.modelName || `${selectedPreviousJobDetails?.parameters?.modelName}_hnn`}) will be used. BaseConfigId will be set to the previous job's ID.
+                              </p>
+                           </ScrollArea>
+                        </CardContent>
+                        <CardFooter>
+                          <Button onClick={handleLoadSuggestionInTrainer} className="w-full" disabled={!selectedPreviousJobDetails || !adviceResult?.suggestedNextTrainingParameters}>
+                            <ArrowRight className="mr-2 h-4 w-4"/> Use these parameters in Train Model
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                      <Card>
+                         <CardHeader><CardTitle className="text-lg">Reasoning from AI</CardTitle></CardHeader>
+                         <CardContent>
+                            <ScrollArea className="h-48">
+                               <p className="text-sm whitespace-pre-wrap">{adviceResult.reasoning}</p>
+                            </ScrollArea>
+                         </CardContent>
+                      </Card>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="chat">
+            <Card>
+              <CardHeader>
+                <CardTitle>AI Chat Assistant</CardTitle>
+                <CardDescription>
+                  Interact with the ZPE Quantum Physicist AI for real-time guidance and explanations.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col h-[600px]">
+                <ScrollArea className="flex-grow pr-4 mb-4">
+                  <div ref={chatContainerRef} className="space-y-4">
+                    {chatMessages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`flex ${
+                          msg.type === "user" ? "justify-end" : "justify-start"
+                        }`}
+                      >
+                        <div
+                          className={`rounded-lg px-4 py-3 max-w-[85%] shadow-sm ${
+                            msg.type === "user"
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted"
+                          }`}
+                        >
+                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                          <p className="text-xs mt-1 opacity-70 text-right">
+                            {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                    {isChatLoading && (
+                        <div className="flex justify-start">
+                             <div className="rounded-lg px-4 py-3 max-w-[85%] shadow-sm bg-muted">
+                                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                             </div>
+                        </div>
+                    )}
+                  </div>
+                </ScrollArea>
+                <div className="mt-auto flex gap-2">
+                  <Textarea
+                    value={userInput}
+                    onChange={(e) => setUserInput(e.target.value)}
+                    onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleChatSubmit();}}}
+                    placeholder="Ask about ZPE, model optimization, or quantum concepts..."
+                    rows={2}
+                    className="flex-grow"
+                  />
+                  <Button onClick={handleChatSubmit} disabled={isChatLoading || !userInput.trim()} className="self-end">
+                    <Send className="h-4 w-4 mr-2" />
+                    Send
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -672,13 +696,20 @@ function AIAnalysisPageComponent() {
 
 export default function AIAnalysisPage() {
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2">Loading AI Analysis Dashboard... (Suspense Active)</span>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center h-screen">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <span className="ml-2">
+            Loading AI Analysis Dashboard...
+          </span>
+        </div>
+      }
+    >
       <AIAnalysisPageComponent />
     </Suspense>
   );
 }
+
+
+    
