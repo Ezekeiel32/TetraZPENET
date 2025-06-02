@@ -5,7 +5,7 @@ import "./globals.css";
 import AppLayout from "@/components/layout/AppLayout";
 import { Toaster } from "@/components/ui/toaster";
 // Import the new dynamic wrapper client component
-import DynamicChakraWrapper from "@/components/providers/DynamicChakraWrapper";
+import ChakraLayoutWrapper from "@/components/layout/ChakraLayoutWrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,11 +31,11 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <head />
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
-        {/* Use the new DynamicChakraWrapper component */}
-        <DynamicChakraWrapper>
+        {/* Use the new ChakraLayoutWrapper component */}
+        <ChakraLayoutWrapper>
           <AppLayout>{children}</AppLayout>
           <Toaster />
-        </DynamicChakraWrapper>
+        </ChakraLayoutWrapper>
       </body>
     </html>
   );

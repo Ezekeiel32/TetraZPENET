@@ -1,8 +1,8 @@
+// src/components/providers/chakra-client.tsx
 "use client";
 
 import { CacheProvider } from '@chakra-ui/next-js';
-import { ChakraProvider } from '@chakra-ui/react';
-import { theme as defaultChakraTheme } from '@chakra-ui/theme'; // Import the default theme
+import { ChakraProvider } from '@chakra-ui/react'; // Removed extendTheme import
 import type { ReactNode } from 'react';
 
 interface ChakraProvidersProps {
@@ -13,7 +13,8 @@ interface ChakraProvidersProps {
 export default function ChakraProviders({ children }: ChakraProvidersProps) {
   return (
     <CacheProvider>
-      <ChakraProvider theme={defaultChakraTheme}>
+      {/* Use ChakraProvider without a theme prop */}
+      <ChakraProvider>
         {children}
       </ChakraProvider>
     </CacheProvider>

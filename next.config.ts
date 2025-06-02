@@ -1,3 +1,4 @@
+
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
@@ -23,6 +24,19 @@ const nextConfig: NextConfig = {
   // env: {
   //   API_BASE_URL: process.env.API_BASE_URL || 'http://localhost:8000/api',
   // },
+  webpack: (config, { isServer }) => {
+    // Provide fallbacks for Node.js modules on the client side
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        sys: false,
+        fs: false,
+        path: false,
+        util: false, // Added util: false
+      };
+    }
+    return config;
+  },
 };
 
 export default nextConfig;
