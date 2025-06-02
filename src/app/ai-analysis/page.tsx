@@ -1,13 +1,22 @@
-
 "use client";
 import React, { useState, useEffect, Suspense, useCallback, useRef } from "react";
-import type { ModelConfig, PerformanceMetric } from "@/types/entities"; // Using existing types
-import { getInitialZpeAnalysis, type GetInitialZpeAnalysisInput, type GetInitialZpeAnalysisOutput } from "@/ai/flows/get-initial-zpe-analysis-flow"; // Corrected import name
-import { getZpeChatResponseFlow, type GetZpeChatResponseInput, type GetZpeChatResponseOutput } from "@/ai/flows/get-zpe-chat-response-flow";
-import { adviseHSQNNParameters, type HSQNNAdvisorInput, type HSQNNAdvisorOutput } from "@/ai/flows/hs-qnn-parameter-advisor";
+import type { ModelConfig, PerformanceMetric } from "@/types/entities";
+import {
+  getInitialZpeAnalysis,
+  type GetInitialZpeAnalysisInput,
+  type GetInitialZpeAnalysisOutput
+} from "@/ai/flows/get-initial-zpe-analysis-flow";
+import {
+  getZpeChatResponseFlow,
+  type GetZpeChatResponseInput,
+  type GetZpeChatResponseOutput
+} from "@/ai/flows/get-zpe-chat-response-flow";
+import {
+  adviseHSQNNParameters,
+  type HSQNNAdvisorInput,
+  type HSQNNAdvisorOutput
+} from "@/ai/flows/hs-qnn-parameter-advisor";
 import type { TrainingParameters, TrainingJob, TrainingJobSummary } from "@/types/training";
-
-
 import {
   Brain, Sparkles, TrendingUp, Lightbulb, MessageSquare, Send, Loader2,
   BarChart3, AlertCircle, CheckCircle, Target, Zap, Play, SlidersHorizontal, Wand2, RefreshCw, ArrowRight
@@ -25,9 +34,8 @@ import { Separator } from "@/components/ui/separator";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
 import { z } from "zod";
-// ai and genkit's z were removed as they should be used within flows.
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
 
 // Local Zod schema for validating previous job parameters before sending to AI flow
 const TrainingParametersSchema = z.object({
@@ -45,7 +53,6 @@ const TrainingParametersSchema = z.object({
   baseConfigId: z.string().nullable().optional(),
 });
 
-
 interface ChatMessage {
   id: number;
   type: "user" | "ai";
@@ -58,10 +65,7 @@ interface ChatMessage {
 
 function AIAnalysisPageComponent() {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
-
   const [configs, setConfigs] = useState<ModelConfig[]>([]);
   const [metrics, setMetrics] = useState<PerformanceMetric[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
@@ -88,9 +92,8 @@ function AIAnalysisPageComponent() {
   const [isLoadingSpecificAdvice, setIsLoadingSpecificAdvice] = useState<boolean>(false);
   const [specificAdviceError, setSpecificAdviceError] = useState<string | null>(null);
 
-
   const fetchCompletedJobsList = useCallback(async () => {
-    setIsLoadingSpecificAdvice(true); 
+    setIsLoadingSpecificAdvice(true);
     setSpecificAdviceError(null);
     try {
       const response = await fetch(`${API_BASE_URL}/jobs?limit=50`);
@@ -108,7 +111,7 @@ function AIAnalysisPageComponent() {
     } finally {
       setIsLoadingSpecificAdvice(false);
     }
-  }, [selectedJobIdForAdvice]); 
+  }, [selectedJobIdForAdvice]);
 
   useEffect(() => {
     fetchCompletedJobsList();
@@ -140,14 +143,12 @@ function AIAnalysisPageComponent() {
     }
   }, [selectedJobIdForAdvice]);
 
-
   useEffect(() => {
     const fetchData = async () => {
       setIsLoadingInitialData(true);
       try {
-        // Simulate fetching initial configs and metrics if needed, or rely on generateInitialAnalysis with default values
-        const modelConfigsData: ModelConfig[] = []; // Or fetch from your backend if you have a config store
-        const performanceMetricsData: PerformanceMetric[] = []; // Or fetch recent metrics from your backend
+        const modelConfigsData: ModelConfig[] = [];
+        const performanceMetricsData: PerformanceMetric[] = [];
         setConfigs(modelConfigsData);
         setMetrics(performanceMetricsData);
         await generateInitialAnalysis(modelConfigsData, performanceMetricsData);
@@ -163,7 +164,6 @@ function AIAnalysisPageComponent() {
       setIsLoadingInitialData(false);
     };
     fetchData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const generateInitialAnalysis = async (currentConfigs: ModelConfig[], currentMetrics: PerformanceMetric[]) => {
@@ -206,17 +206,12 @@ function AIAnalysisPageComponent() {
         )
       );
     }
-    // Auto-scroll chat with a slight delay to allow DOM to update
     const timeoutId = setTimeout(() => {
       if (chatContainerRef.current) {
         chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
       }
-    }, 100); // Adjust delay if needed
-
-    // Clean up the timeout if messages change again or component unmounts
-    return () => {
-      clearTimeout(timeoutId);
-    }
+    }, 100);
+    return () => clearTimeout(timeoutId);
   }, [chatMessages]);
 
   const handleSendMessage = async () => {
@@ -228,9 +223,10 @@ function AIAnalysisPageComponent() {
     setIsAnalyzing(true);
     try {
       const inputForAI: GetZpeChatResponseInput = { userPrompt: tempCurrentMessage };
-      const result = await getZpeChatResponseFlow(inputForAI); 
+      const result = await getZpeChatResponseFlow(inputForAI);
       const aiMessage: ChatMessage = {
-        id: Date.now() + 1, type: "ai",
+        id: Date.now() + 1,
+        type: "ai",
         content: result.response || "I'm having trouble. Could you rephrase?",
         timestamp: new Date()
       };
@@ -238,7 +234,8 @@ function AIAnalysisPageComponent() {
     } catch (error: any) {
       console.error("Error getting AI response:", error);
       const aiErrorMessage: ChatMessage = {
-        id: Date.now() + 1, type: "ai",
+        id: Date.now() + 1,
+        type: "ai",
         content: "Sorry, I encountered an error trying to respond: " + String(error.message),
         timestamp: new Date()
       };
@@ -261,33 +258,42 @@ function AIAnalysisPageComponent() {
       toast({ title: "Invalid Job", description: "Please select a 'completed' job for HNN advice.", variant: "destructive" });
       return;
     }
-    
     setIsLoadingSpecificAdvice(true);
     setSpecificAdviceError(null);
     setSpecificAdviceResult(null);
-    
     const validationResult = TrainingParametersSchema.safeParse(selectedPreviousJobDetails.parameters);
-
     if (!validationResult.success) {
-        console.error("Validation error for previousTrainingParameters:", validationResult.error);
-        const errorDetails = validationResult.error.errors?.map((err) => `${err.path.join('.') || 'parameter'}: ${err.message}`).join('; ') || "Unknown validation error.";
-        setSpecificAdviceError("Previous job parameters are invalid or incomplete. Details: " + errorDetails);
-        toast({ title: "Parameter Validation Failed", description: "Previous job parameters are invalid. " + errorDetails, variant: "destructive", duration: 7000 });
-        setIsLoadingSpecificAdvice(false);
-        return;
+      console.error("Validation error for previousTrainingParameters:", validationResult.error);
+      const errorDetails = validationResult.error.errors?.map((err) => `${err.path.join('.') || 'parameter'}: ${err.message}`).join('; ') || "Unknown validation error.";
+      setSpecificAdviceError("Previous job parameters are invalid or incomplete. Details: " + errorDetails);
+      toast({ title: "Parameter Validation Failed", description: "Previous job parameters are invalid. " + errorDetails, variant: "destructive", duration: 7000 });
+      setIsLoadingSpecificAdvice(false);
+      return;
     }
-
     const validatedPreviousParams = validationResult.data;
-    
     const inputForAI: HSQNNAdvisorInput = {
       previousJobId: selectedPreviousJobDetails.job_id,
-      previousZpeEffects: selectedPreviousJobDetails.zpe_effects || Array(6).fill(0), 
+      previousZpeEffects: selectedPreviousJobDetails.zpe_effects || Array(6).fill(0),
       previousTrainingParameters: validatedPreviousParams,
       hnnObjective: adviceObjective,
     };
-
     try {
       const output = await adviseHSQNNParameters(inputForAI);
+      const defaultParams = Array(6).fill(0);
+      const processedSuggestedParams: Partial<TrainingParameters> = {
+        momentumParams: defaultParams,
+        strengthParams: defaultParams,
+        noiseParams: defaultParams,
+        totalEpochs: selectedPreviousJobDetails?.parameters?.totalEpochs ?? 10,
+        batchSize: selectedPreviousJobDetails?.parameters?.batchSize ?? 32,
+        learningRate: selectedPreviousJobDetails?.parameters?.learningRate ?? 0.001,
+        weightDecay: selectedPreviousJobDetails?.parameters?.weightDecay ?? 0.0001,
+        quantumCircuitSize: selectedPreviousJobDetails?.parameters?.quantumCircuitSize ?? 8,
+        labelSmoothing: selectedPreviousJobDetails?.parameters?.labelSmoothing ?? 0,
+        quantumMode: selectedPreviousJobDetails?.parameters?.quantumMode ?? true,
+        modelName: `${selectedPreviousJobDetails?.parameters?.modelName || 'Default'}_hnn_advised_${Date.now().toString().slice(-4)}`,
+        baseConfigId: selectedPreviousJobDetails?.job_id ?? undefined,
+      };
       setSpecificAdviceResult(output);
       toast({ title: "Specific Advice Generated", description: "AI has provided suggestions for the selected job." });
     } catch (e: any) {
@@ -299,13 +305,12 @@ function AIAnalysisPageComponent() {
   };
 
   const handleLoadSuggestionInTrainer = async (suggestionParams: Partial<TrainingParameters> | undefined) => {
-    if (!suggestionParams) { toast({ title: "Error", description: "No parameters provided for suggestion.", variant: "destructive" }); return; }
-    
+    if (!suggestionParams) {
+      toast({ title: "Error", description: "No parameters provided for suggestion.", variant: "destructive" });
+      return;
+    }
     const baseParamsForRouter = selectedPreviousJobDetails?.parameters ? { ...selectedPreviousJobDetails.parameters } : {};
-    
-    const combinedParamsForRouter: Record<string, any> = { ...baseParamsForRouter, ...suggestionParams }; 
-    
-    // Explicitly set modelName if AI suggested one, otherwise derive or default
+    const combinedParamsForRouter: Record<string, any> = { ...baseParamsForRouter, ...suggestionParams };
     if (suggestionParams.modelName) {
       combinedParamsForRouter.modelName = suggestionParams.modelName;
     } else if (baseParamsForRouter.modelName) {
@@ -313,12 +318,9 @@ function AIAnalysisPageComponent() {
     } else {
       combinedParamsForRouter.modelName = `HNN_Advised_Model_${Date.now().toString().slice(-4)}`;
     }
-
-    if(selectedPreviousJobDetails?.job_id) {
-        combinedParamsForRouter.baseConfigId = selectedPreviousJobDetails.job_id;
+    if (selectedPreviousJobDetails?.job_id) {
+      combinedParamsForRouter.baseConfigId = selectedPreviousJobDetails.job_id;
     }
-
-
     const query = new URLSearchParams();
     for (const [key, value] of Object.entries(combinedParamsForRouter)) {
       if (value !== undefined && value !== null) {
@@ -332,7 +334,10 @@ function AIAnalysisPageComponent() {
     router.push(`/train?${query.toString()}`);
   };
 
-  const handleQuickQuestion = (question: string) => { setCurrentMessage(question); };
+  const handleQuickQuestion = (question: string) => {
+    setCurrentMessage(question);
+  };
+
   const quickQuestions = [
     "How can I improve my model's accuracy?",
     "What's the optimal ZPE momentum configuration?",
@@ -341,10 +346,15 @@ function AIAnalysisPageComponent() {
     "Suggest parameters for a new experiment"
   ];
 
-  const ParamList = ({ params, title }: { params: Partial<TrainingParameters> | undefined, title: string }) => {
+  interface ParamListProps {
+    params: Partial<TrainingParameters> | undefined;
+    title: string;
+  }
+
+  const ParamList = ({ params, title }: ParamListProps) => {
     if (!params || Object.keys(params).length === 0) {
       let message = `${title}: No parameters to display or not applicable.`;
-       if (title === "Suggested Changes" && selectedPreviousJobDetails && (!params || Object.keys(params).length === 0)) {
+      if (title === "Suggested Changes" && selectedPreviousJobDetails && (!params || Object.keys(params).length === 0)) {
         message = `${title}: AI suggests inheriting most parameters. Model Name will be updated. BaseConfigID will link to previous job.`;
       }
       return <p className="text-sm text-muted-foreground italic">{message}</p>;
@@ -352,18 +362,18 @@ function AIAnalysisPageComponent() {
     const entries = Object.entries(params);
     return (
       <div className="space-y-1 text-sm">
-         <h4 className="font-semibold text-muted-foreground">{title}:</h4>
-         <ul className="list-disc list-inside pl-4 space-y-1 bg-background/50 p-2 rounded">
-            {entries.map(([key, value]) => {
-              if (value === undefined || value === null) return null;
-              return (
-                <li key={key}>
-                  <span className="font-medium">{key}:</span>{' '}
-                  {Array.isArray(value) ? `[${value.map(v => typeof v === 'number' ? v.toFixed(4) : String(v)).join(', ')}]` : String(value)}
-                </li>
-              );
-            })}
-         </ul>
+        <h4 className="font-semibold text-muted-foreground">{title}:</h4>
+        <ul className="list-disc list-inside pl-4 space-y-1 bg-background/50 p-2 rounded">
+          {entries.map(([key, value]) => {
+            if (value === undefined || value === null) return null;
+            return (
+              <li key={key}>
+                <span className="font-medium">{key}:</span>{' '}
+                {Array.isArray(value) ? `[${value.map(v => typeof v === 'number' ? v.toFixed(4) : String(v)).join(', ')}]` : String(value)}
+              </li>
+            );
+          })}
+        </ul>
       </div>
     );
   };
@@ -379,14 +389,12 @@ function AIAnalysisPageComponent() {
             Get intelligent insights, optimization suggestions, and ask questions about your ZPE quantum neural network
           </p>
         </div>
-
         <Tabs defaultValue="chat" className="space-y-4">
           <TabsList>
             <TabsTrigger value="chat">AI Chat</TabsTrigger>
             <TabsTrigger value="insights">Auto Analysis</TabsTrigger>
             <TabsTrigger value="optimize">Optimization Suggestions</TabsTrigger>
           </TabsList>
-
           <TabsContent value="chat" className="space-y-4">
             <div className="grid lg:grid-cols-3 gap-6">
               <Card className="lg:col-span-2">
@@ -396,52 +404,130 @@ function AIAnalysisPageComponent() {
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="h-[500px] p-4 overflow-y-auto" ref={chatContainerRef}>
-                      {chatMessages.map((message) => (
-                        <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`max-w-[80%] rounded-lg p-3 ${message.type === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                            <div className="text-sm whitespace-pre-wrap">{message.content}</div>
-                            <div className="text-xs opacity-70 mt-1 text-right">{message.formattedTimestamp || "..."}</div>
+                    {chatMessages.map((message) => (
+                      <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[80%] rounded-lg p-3 ${message.type === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                          <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                          <div className="text-xs opacity-70 mt-1 text-right">{message.formattedTimestamp || "..."}</div>
+                        </div>
+                      </div>
+                    ))}
+                    {isAnalyzing && (
+                      <div className="flex justify-start">
+                        <div className="bg-muted rounded-lg p-3">
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="text-sm">AI is analyzing...</span>
                           </div>
                         </div>
-                      ))}
-                      {isAnalyzing && (<div className="flex justify-start"><div className="bg-muted rounded-lg p-3"><div className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /><span className="text-sm">AI is analyzing...</span></div></div></div>)}
+                      </div>
+                    )}
                   </div>
                   <div className="border-t p-4">
                     <div className="flex gap-2">
-                      <Textarea placeholder="Ask about model performance, optimization strategies, quantum effects, or dataset characteristics..." value={currentMessage} onChange={(e) => setCurrentMessage(e.target.value)} onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }}} className="flex-1" rows={2}/>
+                      <Textarea placeholder="Ask about model performance, optimization strategies, quantum effects, or dataset characteristics..." value={currentMessage} onChange={(e) => setCurrentMessage(e.target.value)} onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }}} className="flex-1" rows={2} />
                       <Button onClick={handleSendMessage} disabled={!currentMessage.trim() || isAnalyzing} size="sm"><Send className="h-4 w-4 mr-1" /> Send</Button>
                     </div>
                   </div>
                 </CardContent>
               </Card>
               <div className="space-y-4">
-                <Card><CardHeader><CardTitle className="text-sm">Quick Questions</CardTitle></CardHeader><CardContent className="space-y-2">{quickQuestions.map((question, idx) => (<Button key={idx} variant="outline" size="sm" className="w-full text-left justify-start h-auto p-2 text-xs" onClick={() => handleQuickQuestion(question)}>{question}</Button>))}</CardContent></Card>
-                <Card><CardHeader><CardTitle className="text-sm">System Status</CardTitle></CardHeader>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Quick Questions</CardTitle>
+                  </CardHeader>
                   <CardContent className="space-y-2">
-                    <div className="flex justify-between text-sm"><span>Model Configs:</span><Badge variant="outline">{configs.length}</Badge></div>
-                    <div className="flex justify-between text-sm"><span>Best Accuracy:</span><Badge variant="outline">{configs.length > 0 ? Math.max(...configs.map(c => c.accuracy || 0)).toFixed(1) : 0}%</Badge></div>
-                    <div className="flex justify-between text-sm"><span>Quantum Enabled:</span><Badge variant="outline">{configs.filter(c => c.use_quantum_noise).length}/{configs.length}</Badge></div>
-                    <div className="flex justify-between text-sm"><span>Training Metrics:</span><Badge variant="outline">{metrics.length}</Badge></div>
+                    {quickQuestions.map((question, idx) => (
+                      <Button key={idx} variant="outline" size="sm" className="w-full text-left justify-start h-auto p-2 text-xs" onClick={() => handleQuickQuestion(question)}>
+                        {question}
+                      </Button>
+                    ))}
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">System Status</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Model Configs:</span>
+                      <Badge variant="outline">{configs.length}</Badge>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Best Accuracy:</span>
+                      <Badge variant="outline">{configs.length > 0 ? Math.max(...configs.map(c => c.accuracy || 0)).toFixed(1) : 0}%</Badge>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Quantum Enabled:</span>
+                      <Badge variant="outline">{configs.filter(c => c.use_quantum_noise).length}/{configs.length}</Badge>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Training Metrics:</span>
+                      <Badge variant="outline">{metrics.length}</Badge>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
             </div>
           </TabsContent>
-
           <TabsContent value="insights" className="space-y-4">
-             {isLoadingInitialData || isGeneratingInsights ? (<Card><CardContent className="flex items-center justify-center h-64"><div className="flex items-center gap-2"><Loader2 className="h-6 w-6 animate-spin" /><span>{isLoadingInitialData ? "Loading model data..." : "AI generating insights..."}</span></div></CardContent></Card>)
-            : aiInsights ? (
+            {isLoadingInitialData || isGeneratingInsights ? (
+              <Card>
+                <CardContent className="flex items-center justify-center h-64">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                    <span>{isLoadingInitialData ? "Loading model data..." : "AI generating insights..."}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : aiInsights ? (
               <div className="grid md:grid-cols-2 gap-6">
-                <Card><CardHeader><CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-green-500" />Performance Assessment</CardTitle></CardHeader><CardContent><p className="text-sm leading-relaxed whitespace-pre-wrap">{aiInsights.performance_assessment}</p></CardContent></Card>
-                <Card><CardHeader><CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-purple-500" />Quantum Effects Analysis</CardTitle></CardHeader><CardContent><p className="text-sm leading-relaxed whitespace-pre-wrap">{aiInsights.quantum_insights}</p></CardContent></Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-green-500" />Performance Assessment</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{aiInsights.performance_assessment}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-purple-500" />Quantum Effects Analysis</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{aiInsights.quantum_insights}</p>
+                  </CardContent>
+                </Card>
                 {aiInsights.attention_areas && aiInsights.attention_areas.length > 0 && (
-                  <Card className="md:col-span-2"><CardHeader><CardTitle className="flex items-center gap-2"><AlertCircle className="h-5 w-5 text-orange-500" />Areas Requiring Attention</CardTitle></CardHeader>
-                    <CardContent><ul className="space-y-2">{aiInsights.attention_areas.map((area, idx) => (<li key={idx} className="flex items-start gap-2"><AlertCircle className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" /><span className="text-sm">{area}</span></li>))}</ul></CardContent>
-                  </Card>)}
+                  <Card className="md:col-span-2">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2"><AlertCircle className="h-5 w-5 text-orange-500" />Areas Requiring Attention</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="space-y-2">
+                        {aiInsights.attention_areas.map((area, idx) => (
+                          <li key={idx} className="flex items-start gap-2">
+                            <AlertCircle className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
+                            <span className="text-sm">{area}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
-            ) : (<Card><CardContent className="flex items-center justify-center h-64"><div className="text-center"><Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" /><p className="text-muted-foreground">No model data available for analysis</p><p className="text-sm text-muted-foreground mt-2">Train some models first to get AI insights</p></div></CardContent></Card>)}
+            ) : (
+              <Card>
+                <CardContent className="flex items-center justify-center h-64">
+                  <div className="text-center">
+                    <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No model data available for analysis</p>
+                    <p className="text-sm text-muted-foreground mt-2">Train some models first to get AI insights</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
-
           <TabsContent value="optimize" className="space-y-6">
             <Card>
               <CardHeader>
@@ -467,20 +553,22 @@ function AIAnalysisPageComponent() {
                   </Select>
                 </div>
                 {selectedPreviousJobDetails && (
-                    <Card className="bg-muted/30 p-3 text-xs">
-                        <CardHeader className="p-0 pb-2"><CardTitle className="text-sm">Selected Job Context</CardTitle></CardHeader>
-                        <CardContent className="p-0 space-y-0.5">
-                            <p><strong>Model:</strong> {selectedPreviousJobDetails.parameters?.modelName || 'N/A'}</p>
-                            <p><strong>Accuracy:</strong> {(selectedPreviousJobDetails.accuracy ?? 0).toFixed(2)}% | <strong>Loss:</strong> {(selectedPreviousJobDetails.loss ?? 0).toFixed(4)}</p>
-                            <p>
-                                <strong>ZPE Effects (avg):</strong> 
-                                {Array.isArray(selectedPreviousJobDetails.zpe_effects) && selectedPreviousJobDetails.zpe_effects.length > 0 
-                                    ? `[${selectedPreviousJobDetails.zpe_effects.map(z => (z ?? 0).toFixed(3)).join(', ')}]`
-                                    : 'N/A'
-                                }
-                            </p>
-                        </CardContent>
-                    </Card>
+                  <Card className="bg-muted/30 p-3 text-xs">
+                    <CardHeader className="p-0 pb-2">
+                      <CardTitle className="text-sm">Selected Job Context</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0 space-y-0.5">
+                      <p><strong>Model:</strong> {selectedPreviousJobDetails.parameters?.modelName || 'N/A'}</p>
+                      <p><strong>Accuracy:</strong> {(selectedPreviousJobDetails.accuracy ?? 0).toFixed(2)}% | <strong>Loss:</strong> {(selectedPreviousJobDetails.loss ?? 0).toFixed(4)}</p>
+                      <p>
+                        <strong>ZPE Effects (avg):</strong> 
+                        {Array.isArray(selectedPreviousJobDetails.zpe_effects) && selectedPreviousJobDetails.zpe_effects.length > 0 
+                          ? `[${selectedPreviousJobDetails.zpe_effects.map(z => (z ?? 0).toFixed(3)).join(', ')}]`
+                          : 'N/A'
+                        }
+                      </p>
+                    </CardContent>
+                  </Card>
                 )}
                 <div>
                   <Label htmlFor="adviceObjective">HNN Objective for Next Step</Label>
@@ -503,30 +591,43 @@ function AIAnalysisPageComponent() {
               {specificAdviceResult && (
                 <CardContent className="mt-4 border-t pt-4 space-y-4">
                   <Card>
-                     <CardHeader><CardTitle className="text-base flex items-center gap-2"><SlidersHorizontal className="h-5 w-5"/>Suggested Changes</CardTitle></CardHeader>
-                     <CardContent><ScrollArea className="h-32"><ParamList params={specificAdviceResult.suggestedNextTrainingParameters} title="Parameters"/></ScrollArea></CardContent>
-                      <CardFooter>
-                        <Button onClick={() => handleLoadSuggestionInTrainer(specificAdviceResult.suggestedNextTrainingParameters)} className="w-full"><Play className="mr-2 h-4 w-4"/>Use in Trainer</Button>
-                      </CardFooter>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2"><SlidersHorizontal className="h-5 w-5"/>Suggested Changes</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ScrollArea className="h-32">
+                        <ParamList params={specificAdviceResult.suggestedNextTrainingParameters} title="Parameters" />
+                      </ScrollArea>
+                    </CardContent>
+                    <CardFooter>
+                      <Button onClick={() => handleLoadSuggestionInTrainer(specificAdviceResult.suggestedNextTrainingParameters)} className="w-full"><Play className="mr-2 h-4 w-4"/>Use in Trainer</Button>
+                    </CardFooter>
                   </Card>
-                   <Card>
-                     <CardHeader><CardTitle className="text-base">Reasoning</CardTitle></CardHeader>
-                     <CardContent><ScrollArea className="h-32"><p className="text-sm whitespace-pre-wrap">{specificAdviceResult.reasoning}</p></ScrollArea></CardContent>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Reasoning</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ScrollArea className="h-32">
+                        <p className="text-sm whitespace-pre-wrap">{specificAdviceResult.reasoning}</p>
+                      </ScrollArea>
+                    </CardContent>
                   </Card>
                 </CardContent>
               )}
             </Card>
-            
             <Separator className="my-8"/>
-
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary"/>General Optimization Suggestions</CardTitle>
                 <CardDescription>Based on the overall summary of your training runs.</CardDescription>
               </CardHeader>
               <CardContent>
-                {isLoadingInitialData || isGeneratingInsights ? (<div className="flex items-center justify-center h-40"><Loader2 className="h-6 w-6 animate-spin" /></div>)
-                : generalOptimizationSuggestions && generalOptimizationSuggestions.length > 0 ? (
+                {isLoadingInitialData || isGeneratingInsights ? (
+                  <div className="flex items-center justify-center h-40">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : generalOptimizationSuggestions && generalOptimizationSuggestions.length > 0 ? (
                   <div className="grid gap-4 md:grid-cols-2">
                     {generalOptimizationSuggestions.map((suggestion, idx) => (
                       <Card key={idx}>
@@ -538,13 +639,28 @@ function AIAnalysisPageComponent() {
                         </CardHeader>
                         <CardContent>
                           <p className="text-sm text-muted-foreground mb-3 whitespace-pre-wrap">{suggestion.description}</p>
-                          {suggestion.expected_impact && (<div className="flex items-center gap-2 text-sm mb-3"><Zap className="h-4 w-4 text-green-500" /><span className="font-medium">Expected Impact:</span><span>{suggestion.expected_impact}</span></div>)}
-                          {suggestion.suggested_parameters && (<Button size="sm" variant="outline" onClick={() => handleLoadSuggestionInTrainer(suggestion.suggested_parameters)} className="w-full"><Play className="h-4 w-4 mr-2"/>Load these Parameters in Trainer</Button>)}
+                          {suggestion.expected_impact && (
+                            <div className="flex items-center gap-2 text-sm mb-3">
+                              <Zap className="h-4 w-4 text-green-500" />
+                              <span className="font-medium">Expected Impact:</span>
+                              <span>{suggestion.expected_impact}</span>
+                            </div>
+                          )}
+                          {suggestion.suggested_parameters && (
+                            <Button size="sm" variant="outline" onClick={() => handleLoadSuggestionInTrainer(suggestion.suggested_parameters)} className="w-full">
+                              <Play className="h-4 w-4 mr-2"/>Load these Parameters in Trainer
+                            </Button>
+                          )}
                         </CardContent>
                       </Card>
                     ))}
                   </div>
-                ) : (<div className="text-center py-10"><Lightbulb className="h-12 w-12 text-muted-foreground mx-auto mb-4" /><p className="text-muted-foreground">No general suggestions available.</p></div>)}
+                ) : (
+                  <div className="text-center py-10">
+                    <Lightbulb className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No general suggestions available.</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -556,9 +672,13 @@ function AIAnalysisPageComponent() {
 
 export default function AIAnalysisPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <span className="ml-2">Loading AI Analysis Dashboard... (Suspense Active)</span></div>}>
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">Loading AI Analysis Dashboard... (Suspense Active)</span>
+      </div>
+    }>
       <AIAnalysisPageComponent />
     </Suspense>
   );
 }
-
